@@ -9,6 +9,7 @@ from pathlib import Path
 import uvicorn
 
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle
+from ai_node.runtime.bootstrap_timeout import BootstrapConnectTimeoutMonitor
 from ai_node.runtime.node_control_api import NodeControlState, create_node_control_app
 
 
@@ -56,6 +57,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("SYNTHIA_BACKEND_LOG_PATH", "logs/backend.log"),
         help="Backend log file path",
     )
+    parser.add_argument(
+        "--bootstrap-connect-timeout-seconds",
+        type=float,
+        default=float(os.environ.get("SYNTHIA_BOOTSTRAP_CONNECT_TIMEOUT_SECONDS", "30")),
+        help="Timeout for waiting in bootstrap_connecting before degraded",
+    )
     return parser
 
 
@@ -84,10 +91,25 @@ def run(
     api_port: int = 9002,
     bootstrap_config_path: str = ".run/bootstrap_config.json",
     log_file: str = "logs/backend.log",
+    bootstrap_connect_timeout_seconds: float = 30.0,
 ) -> int:
     configure_logging(log_file)
     LOGGER.info("starting ai-node backend")
-    lifecycle = NodeLifecycle(logger=LOGGER)
+    monitor_ref = {"monitor": None}
+
+    def _on_transition(transition):
+        monitor = monitor_ref.get("monitor")
+        if monitor is not None:
+            monitor.on_transition(transition)
+
+    lifecycle = NodeLifecycle(logger=LOGGER, on_transition=_on_transition)
+    timeout_monitor = BootstrapConnectTimeoutMonitor(
+        lifecycle=lifecycle,
+        logger=LOGGER,
+        timeout_seconds=bootstrap_connect_timeout_seconds,
+    )
+    monitor_ref["monitor"] = timeout_monitor
+    timeout_monitor.start()
     control_state = NodeControlState(
         lifecycle=lifecycle,
         config_path=bootstrap_config_path,
@@ -97,10 +119,14 @@ def run(
     LOGGER.info("phase1 modules loaded; control API active")
 
     if once:
+        timeout_monitor.stop()
         LOGGER.info("run-once mode complete")
         return 0
 
-    uvicorn.run(app, host=api_host, port=api_port, log_level="info", log_config=None)
+    try:
+        uvicorn.run(app, host=api_host, port=api_port, log_level="info", log_config=None)
+    finally:
+        timeout_monitor.stop()
     LOGGER.info("backend stopped cleanly")
     return 0
 
@@ -117,6 +143,7 @@ def main() -> int:
         api_port=args.api_port,
         bootstrap_config_path=args.bootstrap_config_path,
         log_file=args.log_file,
+        bootstrap_connect_timeout_seconds=args.bootstrap_connect_timeout_seconds,
     )
 
 

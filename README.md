@@ -28,6 +28,11 @@ Backend file logs are written by code logger to:
 logs/backend.log
 ```
 
+Bootstrap connection timeout:
+- Default: 30 seconds in `bootstrap_connecting`
+- Behavior: transitions to `degraded` if timeout expires
+- Override with env var: `SYNTHIA_BOOTSTRAP_CONNECT_TIMEOUT_SECONDS`
+
 Smoke-check mode:
 
 ```bash
