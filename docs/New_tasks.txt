@@ -40,21 +40,6 @@ Do not stop early.
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 063: Phase 2A — Implement functional task-family declaration
-  - Add support for declaring the initial AI task families this node is intended to support.
-  - Include:
-    - text classification
-    - email classification
-    - image classification
-    - image generation
-  - Mark them as declared node task-family capabilities.
-
-  * Comments, descriptions, rules:
-    - These are capability declarations, not proof that execution is implemented yet.
-    - Keep naming consistent with the architecture docs.
-    - Do not let task-family names drift between docs and code.
-
-
 [TODO] Task 064: Phase 2A — Implement provider capability and enabled-provider declaration
   - Add support for declaring:
     - providers supported by the node software

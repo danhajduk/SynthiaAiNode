@@ -5,9 +5,17 @@ from ai_node.capabilities.manifest_schema import (
     create_capability_manifest,
     validate_capability_manifest,
 )
+from ai_node.capabilities.task_families import (
+    CANONICAL_TASK_FAMILIES,
+    create_declared_task_family_capabilities,
+    validate_task_family_capabilities,
+)
 
 __all__ = [
     "CAPABILITY_MANIFEST_SCHEMA_VERSION",
     "create_capability_manifest",
     "validate_capability_manifest",
+    "CANONICAL_TASK_FAMILIES",
+    "create_declared_task_family_capabilities",
+    "validate_task_family_capabilities",
 ]

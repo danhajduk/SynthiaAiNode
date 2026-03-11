@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
+from ai_node.capabilities.task_families import validate_task_family_capabilities
 
 CAPABILITY_MANIFEST_SCHEMA_VERSION = "1.0"
 
@@ -79,6 +80,9 @@ def validate_capability_manifest(data: object) -> Tuple[bool, Optional[str]]:
 
     if not isinstance(task_families, list):
         return False, "invalid_task_families"
+    task_family_valid, task_family_error = validate_task_family_capabilities(task_families)
+    if not task_family_valid:
+        return False, task_family_error
     if not isinstance(providers, dict):
         return False, "invalid_providers"
     if not isinstance(node_features, list):

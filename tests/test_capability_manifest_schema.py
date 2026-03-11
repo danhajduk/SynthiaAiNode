@@ -49,6 +49,21 @@ class CapabilityManifestSchemaTests(unittest.TestCase):
         self.assertFalse(is_valid)
         self.assertEqual(error, "invalid_capabilities")
 
+    def test_validate_rejects_unknown_task_family(self):
+        manifest = create_capability_manifest(
+            node_id="node-001",
+            node_name="main-ai-node",
+            task_families=[],
+            supported_providers=["openai"],
+            enabled_providers=[],
+            node_features=[],
+            environment_hints={},
+        )
+        manifest["capabilities"]["task_families"] = ["audio_transcription"]
+        is_valid, error = validate_capability_manifest(manifest)
+        self.assertFalse(is_valid)
+        self.assertEqual(error, "unknown_task_family:audio_transcription")
+
 
 if __name__ == "__main__":
     unittest.main()
