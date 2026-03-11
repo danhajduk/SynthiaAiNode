@@ -41,36 +41,6 @@ Do not stop early.
 Do not edit above this line:
 #######################################################################
 
-[STOP HERE]
-
-
-[STOP HERE]
-
-
-[TODO] Task 050: Phase 1C — Implement trust-state persistence layer
-  - Persist the canonical trust-state fields locally:
-    - `node_id`
-    - `node_name`
-    - `node_type`
-    - `paired_core_id`
-    - `core_api_endpoint`
-    - `node_trust_token`
-    - `initial_baseline_policy`
-    - `baseline_policy_version`
-    - `operational_mqtt_identity`
-    - `operational_mqtt_token`
-    - `operational_mqtt_host`
-    - `operational_mqtt_port`
-    - `bootstrap_mqtt_host`
-    - `registration_timestamp`
-  - Add load/save/validate helpers.
-
-  * Comments, descriptions, rules:
-    - Persisted trust state must survive restart.
-    - Tokens/secrets must never be logged.
-    - Corrupted trust state must force a fresh onboarding path.
-
-
 [TODO] Task 051: Phase 1C — Implement trusted startup path
   - On startup, check for valid persisted trust state.
   - If valid trust state exists:
