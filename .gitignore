@@ -4,3 +4,8 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+.run/
+logs/
+scripts/stack.env
+frontend/node_modules/
+frontend/dist/
