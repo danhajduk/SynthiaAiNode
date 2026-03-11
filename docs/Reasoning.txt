@@ -87,3 +87,10 @@ Step objective: Prepare operational MQTT credential handoff context.
 Chosen fix: Added a dedicated handoff-preparation helper with strict channel separation between anonymous bootstrap and trusted operational MQTT contexts.
 What changed: Added src/ai_node/trust/operational_handoff.py and tests/test_operational_handoff.py.
 Verification: Unit tests confirm bootstrap publish remains disabled, operational credentials are prepared, and same-endpoint boundary violations are rejected.
+
+###########
+Task #053
+Step objective: Implement minimal Phase 1 status telemetry events.
+Chosen fix: Added a status emitter with allowlisted lifecycle events and channel guardrails that reject bootstrap telemetry routing.
+What changed: Added src/ai_node/telemetry/status_emitter.py and tests/test_status_emitter.py.
+Verification: Unit tests confirm supported status emission, bootstrap-channel rejection, and unsupported-event rejection.

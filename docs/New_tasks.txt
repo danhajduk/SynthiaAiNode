@@ -44,23 +44,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 053: Phase 1D — Implement basic node status telemetry/events
-  - Emit minimal Phase 1 node status events for:
-    - bootstrap connected
-    - core discovered
-    - registration pending
-    - pending approval
-    - trusted
-    - capability setup pending
-    - degraded
-  - Route these over the proper trusted channel or internal status surface.
-
-  * Comments, descriptions, rules:
-    - Do not send telemetry over bootstrap MQTT.
-    - Phase 1 telemetry is operational-status only, not AI workload telemetry.
-    - Keep status payloads small and safe.
-
-
 [TODO] Task 054: Phase 1D — Implement reconnect and degraded behavior
   - Add reconnect logic for:
     - bootstrap connection failures
