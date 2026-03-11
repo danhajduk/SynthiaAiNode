@@ -56,7 +56,7 @@ class BootstrapConnectTimeoutMonitor:
                 if self._lifecycle.get_state() == NodeLifecycleState.BOOTSTRAP_CONNECTING:
                     try:
                         self._lifecycle.transition_to(
-                            NodeLifecycleState.DEGRADED,
+                            NodeLifecycleState.UNCONFIGURED,
                             {
                                 "reason": "bootstrap_connect_timeout",
                                 "timeout_seconds": self._timeout_seconds,

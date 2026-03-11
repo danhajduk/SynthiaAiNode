@@ -30,7 +30,7 @@ logs/backend.log
 
 Bootstrap connection timeout:
 - Default: 30 seconds in `bootstrap_connecting`
-- Behavior: transitions to `degraded` if timeout expires
+- Behavior: transitions back to `unconfigured` if timeout expires
 - Override with env var: `SYNTHIA_BOOTSTRAP_CONNECT_TIMEOUT_SECONDS`
 
 Smoke-check mode:

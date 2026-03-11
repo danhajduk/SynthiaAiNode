@@ -7,7 +7,7 @@ from ai_node.runtime.bootstrap_timeout import BootstrapConnectTimeoutMonitor
 
 
 class BootstrapTimeoutMonitorTests(unittest.TestCase):
-    def test_timeout_moves_bootstrap_connecting_to_degraded(self):
+    def test_timeout_moves_bootstrap_connecting_to_unconfigured(self):
         lifecycle = NodeLifecycle(logger=logging.getLogger("bootstrap-timeout-test"))
         monitor = BootstrapConnectTimeoutMonitor(
             lifecycle=lifecycle,
@@ -20,7 +20,7 @@ class BootstrapTimeoutMonitorTests(unittest.TestCase):
             lifecycle.transition_to(NodeLifecycleState.BOOTSTRAP_CONNECTING)
             monitor.on_transition({"to": NodeLifecycleState.BOOTSTRAP_CONNECTING})
             time.sleep(0.12)
-            self.assertEqual(lifecycle.get_state(), NodeLifecycleState.DEGRADED)
+            self.assertEqual(lifecycle.get_state(), NodeLifecycleState.UNCONFIGURED)
         finally:
             monitor.stop()
 

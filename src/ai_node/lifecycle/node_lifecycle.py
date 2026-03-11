@@ -22,7 +22,10 @@ ALLOWED_TRANSITIONS: Dict[NodeLifecycleState, Set[NodeLifecycleState]] = {
         NodeLifecycleState.BOOTSTRAP_CONNECTING,
         NodeLifecycleState.TRUSTED,
     },
-    NodeLifecycleState.BOOTSTRAP_CONNECTING: {NodeLifecycleState.BOOTSTRAP_CONNECTED},
+    NodeLifecycleState.BOOTSTRAP_CONNECTING: {
+        NodeLifecycleState.BOOTSTRAP_CONNECTED,
+        NodeLifecycleState.UNCONFIGURED,
+    },
     NodeLifecycleState.BOOTSTRAP_CONNECTED: {NodeLifecycleState.CORE_DISCOVERED},
     NodeLifecycleState.CORE_DISCOVERED: {NodeLifecycleState.REGISTRATION_PENDING},
     NodeLifecycleState.REGISTRATION_PENDING: {NodeLifecycleState.PENDING_APPROVAL},
