@@ -1,7 +1,7 @@
 # Synthia AI Node — Trust State
 
-Status: Planned
-Implementation status: Not developed
+Status: Active
+Implementation status: Implemented in backend runtime
 Last updated: 2026-03-11
 
 ## Purpose
@@ -76,7 +76,7 @@ These values must never be logged, emitted in telemetry, or exposed in debug out
 If trust state exists:
 
 1. Skip bootstrap discovery.
-2. Load stored trust data.
+2. Load stored trust data and cross-check `trust_state.node_id` with local identity store.
 3. Reconnect via trusted API/MQTT context.
 4. Transition from `trusted` to `capability_setup_pending` and then `operational` when readiness criteria are met.
 
@@ -91,6 +91,12 @@ If required fields are missing/invalid:
 1. Treat state as invalid.
 2. Log non-sensitive validation error.
 3. Restart onboarding from unconfigured bootstrap flow.
+
+## Identity Consistency Rules
+
+- `trust_state.node_id` must match `.run/node_identity.json` `node_id`.
+- Mismatch is treated as startup validation failure.
+- If identity file is missing and trust state is valid, node backfills identity from trust-state before startup continues.
 
 ## Trust Reset
 

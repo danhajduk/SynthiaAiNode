@@ -1,7 +1,7 @@
 # Synthia AI Node — Phase 1 Overview
 
 Status: Planned
-Implementation status: Not developed
+Implementation status: In progress (bootstrap/onboarding/trust flow implemented)
 Last updated: 2026-03-11
 
 ## Purpose
@@ -14,6 +14,7 @@ Phase 1 covers:
 - node registration with Core
 - operator approval
 - trust activation
+- persistent unique node identity (`node_id`)
 - local trust-state persistence
 - lifecycle status publication
 
@@ -25,8 +26,9 @@ Phase 1 excludes AI execution and provider runtime features.
 2. Node registration with Core API.
 3. Operator approval in Core UI.
 4. Trust activation payload acceptance.
-5. Canonical trust-state persistence.
-6. Lifecycle progression through trusted-to-operational handoff.
+5. Canonical unique node identity generation/persistence and trust-state identity consistency checks.
+6. Canonical trust-state persistence.
+7. Lifecycle progression through trusted-to-operational handoff.
 
 ## Bootstrap Contract Snapshot
 
@@ -74,6 +76,7 @@ unconfigured
 - [Bootstrap Contract](./bootstrap-contract.md)
 - [Registration Flow](./registration-flow.md)
 - [Trust State](./trust-state.md)
+- [Unique Node Identity](./node-identity.md)
 - [Lifecycle States](./lifecycle-states.md)
 - [Security Boundaries](./security-boundaries.md)
 - [Phase 1A Implementation Plan](./phase1-implementation-plan.md)

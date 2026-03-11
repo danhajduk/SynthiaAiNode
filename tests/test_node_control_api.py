@@ -15,6 +15,13 @@ class NodeControlApiTests(unittest.TestCase):
         def start(self, **kwargs):
             self.calls.append(kwargs)
 
+    class _FakeNodeIdentityStore:
+        def __init__(self, payload=None):
+            self._payload = payload
+
+        def load(self):
+            return self._payload
+
     def test_status_is_unconfigured_without_bootstrap_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
@@ -26,6 +33,24 @@ class NodeControlApiTests(unittest.TestCase):
             payload = state.status_payload()
             self.assertEqual(payload["status"], "unconfigured")
             self.assertFalse(payload["bootstrap_configured"])
+            self.assertEqual(payload["identity_state"], "unknown")
+            self.assertIsNone(payload["node_id"])
+
+    def test_status_includes_node_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
+            identity_store = self._FakeNodeIdentityStore(
+                {"node_id": "123e4567-e89b-42d3-a456-426614174000", "created_at": "2026-03-11T00:00:00Z"}
+            )
+            state = NodeControlState(
+                lifecycle=lifecycle,
+                config_path=str(Path(tmp) / "bootstrap_config.json"),
+                logger=logging.getLogger("node-control-test"),
+                node_identity_store=identity_store,
+            )
+            payload = state.status_payload()
+            self.assertEqual(payload["identity_state"], "valid")
+            self.assertEqual(payload["node_id"], "123e4567-e89b-42d3-a456-426614174000")
 
     def test_initiate_onboarding_persists_config_and_moves_state(self):
         with tempfile.TemporaryDirectory() as tmp:

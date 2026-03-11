@@ -1,5 +1,6 @@
 import json
 import threading
+from typing import Callable, Optional
 
 import paho.mqtt.client as mqtt
 
@@ -8,16 +9,24 @@ from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 
 
 class BootstrapMqttRunner:
-    def __init__(self, *, lifecycle: NodeLifecycle, logger) -> None:
+    def __init__(
+        self,
+        *,
+        lifecycle: NodeLifecycle,
+        logger,
+        on_core_discovered: Optional[Callable[[dict, str], None]] = None,
+    ) -> None:
         self._lifecycle = lifecycle
         self._logger = logger
+        self._on_core_discovered = on_core_discovered
         self._client = None
         self._lock = threading.Lock()
         self._active_topic = None
+        self._node_name = None
 
     def start(self, *, bootstrap_host: str, port: int, topic: str, node_name: str) -> None:
         with self._lock:
-            self.stop()
+            self._stop_locked()
 
             client = mqtt.Client(client_id=node_name, clean_session=True)
             client.on_connect = self._on_connect
@@ -28,6 +37,7 @@ class BootstrapMqttRunner:
 
             self._client = client
             self._active_topic = topic
+            self._node_name = node_name
             if hasattr(self._logger, "info"):
                 self._logger.info(
                     "[bootstrap-mqtt-runner] started host=%s port=%s topic=%s",
@@ -38,14 +48,18 @@ class BootstrapMqttRunner:
 
     def stop(self) -> None:
         with self._lock:
-            if self._client is None:
-                return
-            try:
-                self._client.loop_stop()
-                self._client.disconnect()
-            finally:
-                self._client = None
-                self._active_topic = None
+            self._stop_locked()
+
+    def _stop_locked(self) -> None:
+        if self._client is None:
+            return
+        try:
+            self._client.loop_stop()
+            self._client.disconnect()
+        finally:
+            self._client = None
+            self._active_topic = None
+            self._node_name = None
 
     def _on_connect(self, client, _userdata, _flags, rc):
         if rc != 0:
@@ -86,5 +100,7 @@ class BootstrapMqttRunner:
                 NodeLifecycleState.CORE_DISCOVERED,
                 {"source": "bootstrap_mqtt_runner"},
             )
-        if hasattr(self._logger, "info"):
-            self._logger.info("[bootstrap-mqtt-runner] core discovered id=%s", parsed.get("core_id"))
+            if callable(self._on_core_discovered) and self._node_name:
+                self._on_core_discovered(parsed, self._node_name)
+            if hasattr(self._logger, "info"):
+                self._logger.info("[bootstrap-mqtt-runner] core discovered id=%s", parsed.get("core_id"))

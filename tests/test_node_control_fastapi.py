@@ -24,6 +24,9 @@ class NodeControlFastApiTests(unittest.TestCase):
             status_response = client.get("/api/node/status")
             self.assertEqual(status_response.status_code, 200)
             self.assertEqual(status_response.json()["status"], "unconfigured")
+            self.assertIn("node_id", status_response.json())
+            self.assertIn("identity_state", status_response.json())
+            self.assertIn("pending_node_nonce", status_response.json())
 
             initiate_response = client.post(
                 "/api/onboarding/initiate",

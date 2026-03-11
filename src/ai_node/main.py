@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import signal
+import socket
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -9,9 +10,12 @@ from pathlib import Path
 import uvicorn
 
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle
+from ai_node.identity.node_identity_store import NodeIdentityStore
 from ai_node.runtime.bootstrap_mqtt_runner import BootstrapMqttRunner
 from ai_node.runtime.bootstrap_timeout import BootstrapConnectTimeoutMonitor
 from ai_node.runtime.node_control_api import NodeControlState, create_node_control_app
+from ai_node.runtime.onboarding_runtime import OnboardingRuntime
+from ai_node.trust.trust_store import TrustStateStore
 
 
 LOGGER = logging.getLogger("ai_node.main")
@@ -64,6 +68,37 @@ def build_parser() -> argparse.ArgumentParser:
         default=float(os.environ.get("SYNTHIA_BOOTSTRAP_CONNECT_TIMEOUT_SECONDS", "30")),
         help="Timeout for waiting in bootstrap_connecting before degraded",
     )
+    parser.add_argument(
+        "--node-software-version",
+        default=os.environ.get("SYNTHIA_NODE_SOFTWARE_VERSION", "0.1.0"),
+        help="Node software version used during registration",
+    )
+    parser.add_argument(
+        "--protocol-version",
+        default=os.environ.get("SYNTHIA_NODE_PROTOCOL_VERSION", "1.0"),
+        help="Onboarding protocol version used during registration",
+    )
+    parser.add_argument(
+        "--node-hostname",
+        default=os.environ.get("SYNTHIA_NODE_HOSTNAME", socket.gethostname()),
+        help="Hostname sent during registration",
+    )
+    parser.add_argument(
+        "--trust-state-path",
+        default=os.environ.get("SYNTHIA_TRUST_STATE_PATH", ".run/trust_state.json"),
+        help="Path to persisted trusted state",
+    )
+    parser.add_argument(
+        "--node-identity-path",
+        default=os.environ.get("SYNTHIA_NODE_IDENTITY_PATH", ".run/node_identity.json"),
+        help="Path to persisted node identity state",
+    )
+    parser.add_argument(
+        "--finalize-poll-interval-seconds",
+        type=float,
+        default=float(os.environ.get("SYNTHIA_FINALIZE_POLL_INTERVAL_SECONDS", "2")),
+        help="Polling interval for onboarding finalize status",
+    )
     return parser
 
 
@@ -93,9 +128,35 @@ def run(
     bootstrap_config_path: str = ".run/bootstrap_config.json",
     log_file: str = "logs/backend.log",
     bootstrap_connect_timeout_seconds: float = 30.0,
+    node_software_version: str = "0.1.0",
+    protocol_version: str = "1.0",
+    node_hostname: str | None = None,
+    trust_state_path: str = ".run/trust_state.json",
+    node_identity_path: str = ".run/node_identity.json",
+    finalize_poll_interval_seconds: float = 2.0,
 ) -> int:
     configure_logging(log_file)
     LOGGER.info("starting ai-node backend")
+    trust_state_store = TrustStateStore(path=trust_state_path, logger=LOGGER)
+    trust_state = trust_state_store.load()
+    migration_node_id = None
+    if isinstance(trust_state, dict):
+        migration_node_id = str(trust_state.get("node_id") or "").strip() or None
+
+    node_identity_store = NodeIdentityStore(path=node_identity_path, logger=LOGGER)
+    node_identity = node_identity_store.load_or_create(migration_node_id=migration_node_id)
+    LOGGER.info("[node-identity] %s", {"node_id": node_identity["node_id"], "path": node_identity_path})
+    if isinstance(trust_state, dict):
+        trust_node_id = str(trust_state.get("node_id") or "").strip()
+        identity_node_id = str(node_identity.get("node_id") or "").strip()
+        if trust_node_id and trust_node_id != identity_node_id:
+            LOGGER.error(
+                "[node-identity-mismatch] trust_state.node_id=%s does not match identity.node_id=%s",
+                trust_node_id,
+                identity_node_id,
+            )
+            return 1
+
     monitor_ref = {"monitor": None}
 
     def _on_transition(transition):
@@ -111,12 +172,28 @@ def run(
     )
     monitor_ref["monitor"] = timeout_monitor
     timeout_monitor.start()
-    bootstrap_runner = BootstrapMqttRunner(lifecycle=lifecycle, logger=LOGGER)
+    onboarding_runtime = OnboardingRuntime(
+        lifecycle=lifecycle,
+        logger=LOGGER,
+        node_id=node_identity["node_id"],
+        node_software_version=node_software_version,
+        protocol_version=protocol_version,
+        hostname=node_hostname,
+        trust_state_path=trust_state_path,
+        finalize_poll_interval_seconds=finalize_poll_interval_seconds,
+    )
+    bootstrap_runner = BootstrapMqttRunner(
+        lifecycle=lifecycle,
+        logger=LOGGER,
+        on_core_discovered=onboarding_runtime.on_core_discovered,
+    )
     control_state = NodeControlState(
         lifecycle=lifecycle,
         config_path=bootstrap_config_path,
         logger=LOGGER,
         bootstrap_runner=bootstrap_runner,
+        onboarding_runtime=onboarding_runtime,
+        node_identity_store=node_identity_store,
     )
     app = create_node_control_app(state=control_state, logger=LOGGER)
     LOGGER.info("phase1 modules loaded; control API active")
@@ -149,6 +226,12 @@ def main() -> int:
         bootstrap_config_path=args.bootstrap_config_path,
         log_file=args.log_file,
         bootstrap_connect_timeout_seconds=args.bootstrap_connect_timeout_seconds,
+        node_software_version=args.node_software_version,
+        protocol_version=args.protocol_version,
+        node_hostname=args.node_hostname,
+        trust_state_path=args.trust_state_path,
+        node_identity_path=args.node_identity_path,
+        finalize_poll_interval_seconds=args.finalize_poll_interval_seconds,
     )
 
 

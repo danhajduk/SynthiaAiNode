@@ -80,6 +80,22 @@ class NodeLifecycle:
         self._on_transition({"from": previous, "to": next_state, "meta": meta or {}})
         return self._state
 
+    def reset_to_unconfigured(self, meta: Optional[dict] = None) -> NodeLifecycleState:
+        previous = self._state
+        self._state = NodeLifecycleState.UNCONFIGURED
+        payload = {"from": previous.value, "to": NodeLifecycleState.UNCONFIGURED.value, **(meta or {})}
+        if hasattr(self._logger, "info"):
+            self._logger.info("[state-transition] %s", payload)
+        self._diag.state_transition(payload)
+        self._on_transition(
+            {
+                "from": previous,
+                "to": NodeLifecycleState.UNCONFIGURED,
+                "meta": meta or {},
+            }
+        )
+        return self._state
+
 
 def _can_transition(from_state: NodeLifecycleState, to_state: NodeLifecycleState) -> bool:
     if to_state == NodeLifecycleState.DEGRADED and from_state in DEGRADABLE_STATES:

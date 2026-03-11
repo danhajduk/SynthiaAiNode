@@ -30,6 +30,9 @@ def parse_trust_activation_payload(payload: object) -> Tuple[bool, object]:
 
     if not _is_non_empty_string(payload["node_id"]):
         return False, "invalid_node_id"
+    node_type = str(payload.get("node_type", "ai-node")).strip()
+    if not _is_non_empty_string(node_type):
+        return False, "invalid_node_type"
     if not _is_non_empty_string(payload["paired_core_id"]):
         return False, "invalid_paired_core_id"
     if not _is_non_empty_string(payload["node_trust_token"]):
@@ -54,6 +57,7 @@ def parse_trust_activation_payload(payload: object) -> Tuple[bool, object]:
         True,
         {
             "node_id": payload["node_id"].strip(),
+            "node_type": node_type,
             "paired_core_id": payload["paired_core_id"].strip(),
             "node_trust_token": payload["node_trust_token"].strip(),
             "initial_baseline_policy": payload["initial_baseline_policy"],

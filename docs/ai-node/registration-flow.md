@@ -1,7 +1,7 @@
 # Synthia AI Node — Registration Flow
 
-Status: Planned
-Implementation status: Not developed
+Status: Active
+Implementation status: Implemented in backend runtime
 Last updated: 2026-03-11
 
 ## Purpose
@@ -52,11 +52,13 @@ Example:
 
 ```json
 {
+  "node_id": "123e4567-e89b-42d3-a456-426614174000",
   "node_name": "main-ai-node",
   "node_type": "ai-node",
   "node_software_version": "0.1.0",
-  "protocol_version": 1,
-  "hostname": "ai-server"
+  "protocol_version": "1.0",
+  "node_nonce": "58a5f88e-64c2-4552-8721-9ea47dcf2d1e",
+  "hostname": "ai-server.local"
 }
 ```
 
@@ -64,10 +66,12 @@ Fields:
 
 | Field | Description |
 | --- | --- |
+| `node_id` | Stable local node identity persisted by AI Node |
 | `node_name` | Human-readable node identifier |
 | `node_type` | Must be `"ai-node"` |
 | `node_software_version` | Node software version |
 | `protocol_version` | Registration protocol compatibility |
+| `node_nonce` | Unique per-registration attempt correlation nonce |
 | `hostname` | Optional host identifier |
 
 ## Core Registration Handling
@@ -87,7 +91,13 @@ Example:
 ```json
 {
   "status": "pending_approval",
-  "approval_url": "http://core.local/ui/nodes/pending"
+  "session": {
+    "session_id": "4b65f6f7-e18f-4a5c-8f50-b5a18c009e74",
+    "approval_url": "http://core.local/admin/onboarding/sessions/4b65f6f7-e18f-4a5c-8f50-b5a18c009e74/approve",
+    "finalize": {
+      "path": "/api/system/nodes/onboarding/sessions/4b65f6f7-e18f-4a5c-8f50-b5a18c009e74/finalize"
+    }
+  }
 }
 ```
 
@@ -96,6 +106,7 @@ Example:
 When node receives `pending_approval` it must:
 
 - log/surface approval metadata
+- retain correlation metadata (`node_id`, `session_id`, `node_nonce`)
 - remain in pending approval state
 - check status via approval/status flow
 - avoid repeated registration re-submit

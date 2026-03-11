@@ -122,3 +122,73 @@ Step objective: Create final Phase 1 test checklist and run validation pass.
 Chosen fix: Added a dedicated checklist document mapping each required scenario to expected lifecycle transitions and current test coverage.
 What changed: Added docs/ai-node/phase1-test-checklist.md and executed full unittest suite for validation evidence.
 Verification: Full test run passes (34 tests, 0 failures) and checklist records scenario-to-transition expectations.
+
+###########
+Task #058
+Step objective: Define canonical unique node ID strategy and immutability/lifecycle constraints.
+Chosen fix: Added a dedicated node identity source-of-truth doc and linked it into Phase 1 docs.
+What changed: Added docs/ai-node/node-identity.md and updated docs/ai-node/phase1-overview.md + docs/ai-node/phase1-implementation-plan.md links.
+Verification: Cross-links resolve and strategy is explicit for UUIDv4 generation, persistence, and immutability boundaries.
+
+###########
+Task #059
+Step objective: Add persistent node identity store with create/load/validate semantics.
+Chosen fix: Implemented a standalone identity module mirroring trust-store persistence patterns with strict UUIDv4 validation.
+What changed: Added src/ai_node/identity/node_identity_store.py, src/ai_node/identity/__init__.py, and tests/test_node_identity_store.py.
+Verification: `PYTHONPATH=src python3 -m unittest tests.test_node_identity_store -v` passes (6 tests).
+
+###########
+Task #060
+Step objective: Generate/reuse persistent node_id at backend startup.
+Chosen fix: Wired startup to call node identity store `load_or_create` before onboarding runtime bootstraps.
+What changed: Updated src/ai_node/main.py with `--node-identity-path` support and startup identity loading; expanded tests/test_main_entrypoint.py for create/reuse behavior.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_main_entrypoint tests.test_node_identity_store -v` passes (9 tests).
+
+###########
+Task #061
+Step objective: Expose node identity fields through node control status API.
+Chosen fix: Extended NodeControlState to consume node identity store and publish `node_id` plus `identity_state`.
+What changed: Updated src/ai_node/runtime/node_control_api.py and src/ai_node/main.py; expanded tests/test_node_control_api.py and tests/test_node_control_fastapi.py.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_main_entrypoint tests.test_node_control_api tests.test_node_control_fastapi tests.test_node_identity_store -v` passes (14 tests).
+
+###########
+Task #062
+Step objective: Include node_id in onboarding registration session payload and correlation metadata.
+Chosen fix: Threaded `node_id` from startup identity into onboarding runtime and registration payload, and surfaced pending correlation metadata in API/runtime logs.
+What changed: Updated src/ai_node/main.py, src/ai_node/runtime/onboarding_runtime.py, src/ai_node/registration/registration_client.py, and src/ai_node/runtime/node_control_api.py.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_registration_client tests.test_node_control_fastapi -v` passes.
+
+###########
+Task #063
+Step objective: Enforce trust-state and identity-store node_id consistency.
+Chosen fix: Added runtime validation that approved activation payload node_id must match local identity and startup validation that trust_state.node_id must equal identity node_id.
+What changed: Updated src/ai_node/runtime/onboarding_runtime.py and src/ai_node/main.py with mismatch hard-fail behavior.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_main_entrypoint -v` includes mismatch failure case and passes.
+
+###########
+Task #064
+Step objective: Add migration path for existing trusted nodes with no identity file.
+Chosen fix: Added identity-store backfill from valid trust_state.node_id using legacy id format, without rotating existing trusted node IDs.
+What changed: Updated src/ai_node/identity/node_identity_store.py and startup wiring in src/ai_node/main.py; added migration tests.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_main_entrypoint tests.test_node_identity_store -v` passes.
+
+###########
+Task #065
+Step objective: Show node_id in setup/pending-approval UI and add copy action.
+Chosen fix: Added node_id state binding from status API and clipboard copy control in React app header/setup/pending onboarding view.
+What changed: Updated frontend/src/App.jsx and frontend/src/app.css.
+Verification: `cd frontend && npm run build` passes.
+
+###########
+Task #066
+Step objective: Add tests covering identity persistence, migration, API exposure, and registration payload.
+Chosen fix: Expanded focused unit tests rather than broad suite to cover new behavior directly.
+What changed: Updated tests/test_main_entrypoint.py, tests/test_node_identity_store.py, tests/test_node_control_fastapi.py, and tests/test_registration_client.py.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_main_entrypoint tests.test_node_identity_store tests.test_node_control_api tests.test_node_control_fastapi tests.test_registration_client -v` passes (19 tests).
+
+###########
+Task #067
+Step objective: Update Phase 1 docs/contracts for unique node_id operational expectations.
+Chosen fix: Updated identity, registration, trust-state, and Phase 1 plan/overview docs to reflect implemented node_id generation, migration, and consistency rules.
+What changed: Updated docs/ai-node/node-identity.md, docs/ai-node/registration-flow.md, docs/ai-node/trust-state.md, docs/ai-node/phase1-overview.md, docs/ai-node/phase1-implementation-plan.md.
+Verification: Documentation aligns with implemented payload fields and startup/runtime behavior.

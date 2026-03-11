@@ -55,3 +55,13 @@ Task 054: Phase 1D - Implement reconnect and degraded behavior - Completed on 03
 Task 055: Phase 1D - Enforce Phase 1 security boundaries in code - Completed on 03/11/2026 10:03
 Task 056: Phase 1D - Add logging and diagnostics for onboarding flow - Completed on 03/11/2026 10:05
 Task 057: Phase 1D - Create Phase 1 test checklist and validation pass - Completed on 03/11/2026 10:06
+Task 058: Define canonical unique node ID strategy (UUIDv4), lifecycle rules, and immutability constraints. - Completed on 03/11/2026 15:23
+Task 059: Add persistent node identity store (.run/node_identity.json) with create/load/validate semantics. - Completed on 03/11/2026 15:25
+Task 060: Generate unique node_id on first startup before onboarding and reuse it on all subsequent restarts. - Completed on 03/11/2026 15:27
+Task 061: Extend node control/status API to expose node_id and identity_state for frontend/debug visibility. - Completed on 03/11/2026 15:28
+Task 062: Include node_id in onboarding registration session payloads and approval/finalize correlation metadata. - Completed on 03/11/2026 15:38
+Task 063: Persist node_id in trust-state and enforce cross-check between trust_state.node_id and identity store. - Completed on 03/11/2026 15:38
+Task 064: Add migration path for existing nodes with no node_id (safe backfill without breaking current trust state). - Completed on 03/11/2026 15:38
+Task 065: Update setup/pending-approval UI to display node_id and allow copy action for support workflows. - Completed on 03/11/2026 15:38
+Task 066: Add unit/integration tests for identity generation, persistence, migration, API exposure, and registration payload. - Completed on 03/11/2026 15:38
+Task 067: Update Phase 1 docs and contracts to include unique node_id requirements and operational expectations. - Completed on 03/11/2026 15:38

@@ -10,13 +10,40 @@ from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 
 
 class NodeControlState:
-    def __init__(self, *, lifecycle: NodeLifecycle, config_path: str, logger, bootstrap_runner=None) -> None:
+    def __init__(
+        self,
+        *,
+        lifecycle: NodeLifecycle,
+        config_path: str,
+        logger,
+        bootstrap_runner=None,
+        onboarding_runtime=None,
+        node_identity_store=None,
+    ) -> None:
         self._lifecycle = lifecycle
         self._config_path = Path(config_path)
         self._logger = logger
         self._bootstrap_runner = bootstrap_runner
+        self._onboarding_runtime = onboarding_runtime
+        self._node_identity_store = node_identity_store
         self._bootstrap_config = None
+        self._node_id = None
+        self._identity_state = "unknown"
+        self._load_identity()
         self._load_existing_config()
+
+    def _load_identity(self) -> None:
+        if self._node_identity_store is None or not hasattr(self._node_identity_store, "load"):
+            self._identity_state = "unknown"
+            self._node_id = None
+            return
+        payload = self._node_identity_store.load()
+        if payload is None:
+            self._identity_state = "missing"
+            self._node_id = None
+            return
+        self._identity_state = "valid"
+        self._node_id = payload.get("node_id")
 
     def _load_existing_config(self) -> None:
         if not self._config_path.exists():
@@ -38,9 +65,17 @@ class NodeControlState:
 
     def status_payload(self) -> dict:
         state = self._lifecycle.get_state()
+        runtime_context = {}
+        if self._onboarding_runtime is not None and hasattr(self._onboarding_runtime, "get_status_context"):
+            runtime_context = self._onboarding_runtime.get_status_context()
         return {
             "status": state.value,
             "bootstrap_configured": self._bootstrap_config is not None,
+            "pending_approval_url": runtime_context.get("pending_approval_url"),
+            "pending_session_id": runtime_context.get("pending_session_id"),
+            "pending_node_nonce": runtime_context.get("pending_node_nonce"),
+            "node_id": self._node_id,
+            "identity_state": self._identity_state,
         }
 
     def _start_bootstrap_runner_if_available(self) -> None:
@@ -82,6 +117,18 @@ class NodeControlState:
         self._start_bootstrap_runner_if_available()
         return self.status_payload()
 
+    def restart_setup(self) -> dict:
+        if self._bootstrap_runner is not None and hasattr(self._bootstrap_runner, "stop"):
+            self._bootstrap_runner.stop()
+        if self._onboarding_runtime is not None and hasattr(self._onboarding_runtime, "cancel"):
+            self._onboarding_runtime.cancel()
+
+        self._bootstrap_config = None
+        if self._config_path.exists():
+            self._config_path.unlink()
+        self._lifecycle.reset_to_unconfigured({"source": "setup_ui_restart"})
+        return self.status_payload()
+
 
 class OnboardingInitiateRequest(BaseModel):
     mqtt_host: str
@@ -107,6 +154,7 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
             "endpoints": [
                 "/api/node/status",
                 "/api/onboarding/initiate",
+                "/api/onboarding/restart",
                 "/api/health",
             ],
         }
@@ -128,6 +176,10 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/onboarding/restart")
+    def post_onboarding_restart():
+        return state.restart_setup()
 
     if hasattr(logger, "info"):
         logger.info("[node-control-api] FastAPI app initialized")

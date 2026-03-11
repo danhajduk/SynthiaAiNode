@@ -51,6 +51,11 @@ def build_registration_url(api_base: str, register_path: str) -> str:
 
     base = f"{api.rstrip('/')}/"
     relative_path = path[1:] if path.startswith("/") else path
+    base_path = parsed.path.strip("/")
+    if base_path and (
+        relative_path == base_path or relative_path.startswith(f"{base_path}/")
+    ):
+        relative_path = relative_path[len(base_path) :].lstrip("/")
     return urljoin(base, relative_path)
 
 

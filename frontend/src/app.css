@@ -25,6 +25,10 @@
   color: hsl(var(--color-text-muted));
 }
 
+.tiny {
+  font-size: 0.85rem;
+}
+
 h2 {
   margin-top: 0;
 }

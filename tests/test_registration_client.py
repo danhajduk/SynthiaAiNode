@@ -31,9 +31,11 @@ class RegistrationClientTests(unittest.IsolatedAsyncioTestCase):
                 "api_base": "http://192.168.1.50:9001",
                 "onboarding_endpoints": {"register": "/api/nodes/register"},
             },
+            node_id="123e4567-e89b-42d3-a456-426614174000",
             node_name="main-ai-node",
             node_software_version="0.1.0",
             protocol_version=1,
+            node_nonce="abcd1234-1234-5678-90ab-1234567890ab",
             hostname="ai-server",
         )
 
@@ -41,6 +43,7 @@ class RegistrationClientTests(unittest.IsolatedAsyncioTestCase):
             http_adapter.url,
             "http://192.168.1.50:9001/api/nodes/register",
         )
+        self.assertEqual(http_adapter.payload["node_id"], "123e4567-e89b-42d3-a456-426614174000")
         self.assertEqual(http_adapter.payload["node_type"], "ai-node")
         self.assertEqual(http_adapter.payload["hostname"], "ai-server")
         self.assertEqual(result["status"], "pending_approval")

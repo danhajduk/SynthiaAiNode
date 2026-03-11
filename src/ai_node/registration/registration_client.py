@@ -24,9 +24,11 @@ class RegistrationClient:
         self,
         *,
         bootstrap_payload: dict,
+        node_id: str,
         node_name: str,
         node_software_version: str,
-        protocol_version: int,
+        protocol_version: str,
+        node_nonce: str,
         hostname: str | None = None,
     ) -> dict:
         if not isinstance(bootstrap_payload, dict):
@@ -45,12 +47,14 @@ class RegistrationClient:
             raise ValueError("registration URL must be http/https")
 
         payload = {
+            "node_id": _require_non_empty_string(node_id, "node_id"),
             "node_name": _require_non_empty_string(node_name, "node_name"),
             "node_type": "ai-node",
             "node_software_version": _require_non_empty_string(
                 node_software_version, "node_software_version"
             ),
-            "protocol_version": int(protocol_version),
+            "protocol_version": str(protocol_version).strip(),
+            "node_nonce": _require_non_empty_string(node_nonce, "node_nonce"),
         }
         if hostname is not None and hostname.strip():
             payload["hostname"] = hostname.strip()
@@ -59,6 +63,7 @@ class RegistrationClient:
         self._diag.registration_attempt(
             {
                 "url": resolved_url,
+                "node_id": payload["node_id"],
                 "node_name": payload["node_name"],
                 "protocol_version": payload["protocol_version"],
             }
@@ -68,6 +73,7 @@ class RegistrationClient:
                 "[registration-request] %s",
                 {
                     "url": resolved_url,
+                    "node_id": payload["node_id"],
                     "node_name": payload["node_name"],
                     "node_type": payload["node_type"],
                     "protocol_version": payload["protocol_version"],

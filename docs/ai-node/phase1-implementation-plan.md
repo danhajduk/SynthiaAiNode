@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 1A Implementation Plan and Module Map
 
 Status: Active
-Implementation status: Phase 1 tasks completed (Tasks 041-057)
+Implementation status: Phase 1 core + node identity tasks completed (Tasks 041-067)
 Last updated: 2026-03-11
 
 ## Scope
@@ -13,6 +13,7 @@ This plan defines the concrete Phase 1A implementation boundary for AI Node:
 - operator approval wait
 - trust activation
 - local trust persistence
+- unique node identity persistence and migration
 - lifecycle states
 - basic status telemetry
 
@@ -30,6 +31,7 @@ Out of scope for this phase:
 - [Lifecycle States](./lifecycle-states.md)
 - [Registration Flow](./registration-flow.md)
 - [Trust State](./trust-state.md)
+- [Unique Node Identity](./node-identity.md)
 - [Security Boundaries](./security-boundaries.md)
 
 ## Planned Runtime Flow
@@ -92,6 +94,9 @@ Current implementation files:
 - `src/ai_node/security/boundaries.py`
 - `src/ai_node/security/redaction.py`
 - `src/ai_node/diagnostics/onboarding_logger.py`
+- `src/ai_node/identity/node_identity_store.py`
+- `src/ai_node/runtime/onboarding_runtime.py`
+- `src/ai_node/runtime/node_control_api.py`
 - `tests/test_phase1a_bootstrap.py`
 - `tests/test_registration_client.py`
 - `tests/test_approval_waiter.py`
@@ -103,6 +108,10 @@ Current implementation files:
 - `tests/test_connectivity_manager.py`
 - `tests/test_security_boundaries.py`
 - `tests/test_onboarding_logger.py`
+- `tests/test_node_identity_store.py`
+- `tests/test_main_entrypoint.py`
+- `tests/test_node_control_api.py`
+- `tests/test_node_control_fastapi.py`
 - `docs/ai-node/phase1-test-checklist.md`
 
 ## State and Security Guardrails
