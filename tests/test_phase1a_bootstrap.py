@@ -87,6 +87,12 @@ class Phase1ABootstrapTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(invalid_ok)
         self.assertEqual(invalid_error, "unsupported_onboarding_mode")
 
+        unsafe_ok, unsafe_error = validate_bootstrap_payload(
+            {**sample, "node_trust_token": "should-not-be-here"}
+        )
+        self.assertFalse(unsafe_ok)
+        self.assertIn("forbidden_bootstrap_fields", unsafe_error)
+
     def test_build_registration_url(self):
         self.assertEqual(
             build_registration_url("http://core.local:9001", "/api/nodes/register"),

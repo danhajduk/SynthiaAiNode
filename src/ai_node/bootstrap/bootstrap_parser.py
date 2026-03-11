@@ -2,6 +2,8 @@ import json
 from typing import Iterable, Tuple
 from urllib.parse import urljoin, urlparse
 
+from ai_node.security.boundaries import enforce_bootstrap_security_boundary
+
 
 REQUIRED_FIELDS = (
     "topic",
@@ -60,6 +62,9 @@ def validate_bootstrap_payload(
 ) -> Tuple[bool, object]:
     if not isinstance(payload, dict):
         return False, "invalid_payload"
+    boundary_ok, boundary_error = enforce_bootstrap_security_boundary(payload)
+    if not boundary_ok:
+        return False, boundary_error
     if any(field not in payload for field in REQUIRED_FIELDS):
         return False, "missing_required_fields"
 

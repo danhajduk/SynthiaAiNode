@@ -101,3 +101,10 @@ Step objective: Add bounded reconnect and degraded recovery behavior.
 Chosen fix: Added a connectivity manager with bounded bootstrap reconnect attempts and trusted-connectivity degraded/recovery handling.
 What changed: Added src/ai_node/runtime/connectivity_manager.py and tests/test_connectivity_manager.py.
 Verification: Unit tests confirm retry/backoff-like reconnect behavior, degraded transition on trusted outage, and recovery to operational state.
+
+###########
+Task #055
+Step objective: Enforce Phase 1 security boundaries and redaction guardrails.
+Chosen fix: Added explicit security boundary checks, approval gating helper, and centralized sensitive-field redaction utility integrated into bootstrap validation and trust logging.
+What changed: Added src/ai_node/security/boundaries.py, src/ai_node/security/redaction.py, tests/test_security_boundaries.py, and updated bootstrap/trust tests.
+Verification: Unit tests confirm bootstrap trust-field rejection, approval requirement before trust activation, and secret redaction behavior.

@@ -44,20 +44,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 055: Phase 1D — Enforce Phase 1 security boundaries in code
-  - Enforce the documented rules:
-    - node never publishes on bootstrap
-    - bootstrap payload cannot inject trusted secrets into persistent state
-    - approval is mandatory before trust activation
-    - secrets are redacted in logs/errors
-  - Add explicit guardrails around malformed or dangerous flows.
-
-  * Comments, descriptions, rules:
-    - This task prevents architectural drift during implementation.
-    - Bootstrap must remain discovery-only.
-    - No secret leakage in logs, telemetry, or debug output.
-
-
 [TODO] Task 056: Phase 1D — Add logging and diagnostics for onboarding flow
   - Add structured logs for:
     - state transitions

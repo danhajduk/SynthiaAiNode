@@ -2,6 +2,8 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple
 
+from ai_node.security.redaction import redact_dict
+
 
 REQUIRED_TRUST_STATE_FIELDS = (
     "node_id",
@@ -28,13 +30,7 @@ def _is_non_empty_string(value: object) -> bool:
 
 
 def redact_trust_state(data: dict) -> dict:
-    if not isinstance(data, dict):
-        return {}
-    redacted = dict(data)
-    for key in SENSITIVE_TRUST_FIELDS:
-        if key in redacted and redacted[key]:
-            redacted[key] = "***REDACTED***"
-    return redacted
+    return redact_dict(data)
 
 
 def validate_trust_state(data: object) -> Tuple[bool, Optional[str]]:
