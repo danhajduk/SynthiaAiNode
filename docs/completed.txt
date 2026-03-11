@@ -37,3 +37,9 @@ Task 036: Add required document status metadata to all split docs - Completed on
 Task 037: Add cross-links and “See also” navigation to all split docs - Completed on 03/11/2026 09:29
 Task 038: Fix markdown fence and formatting defects in split docs - Completed on 03/11/2026 09:29
 Task 039: Regenerate mismatch report and verify zero contradictory findings - Completed on 03/11/2026 09:29
+Task 040: Phase 1A - Create implementation plan and module/file map - Completed on 03/11/2026 09:38
+Task 041: Phase 1A - Implement bootstrap configuration handling - Completed on 03/11/2026 09:41
+Task 042: Phase 1A - Implement node lifecycle state model - Completed on 03/11/2026 09:41
+Task 043: Phase 1A - Implement bootstrap MQTT connection client - Completed on 03/11/2026 09:41
+Task 044: Phase 1A - Implement bootstrap topic subscription and payload parsing - Completed on 03/11/2026 09:41
+Task 045: Phase 1A - Implement bootstrap payload validation - Completed on 03/11/2026 09:41

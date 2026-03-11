@@ -76,3 +76,4 @@ unconfigured
 - [Trust State](./trust-state.md)
 - [Lifecycle States](./lifecycle-states.md)
 - [Security Boundaries](./security-boundaries.md)
+- [Phase 1A Implementation Plan](./phase1-implementation-plan.md)
