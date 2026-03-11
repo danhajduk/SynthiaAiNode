@@ -44,20 +44,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 047: Phase 1B — Implement pending approval handling
-  - Handle the Core response when registration enters pending approval.
-  - Read and display/store:
-    - approval URL or equivalent approval metadata
-    - pending status
-  - Implement approval wait logic via polling or status-check flow.
-  - Transition state to `pending_approval`.
-
-  * Comments, descriptions, rules:
-    - Do not repeatedly resubmit registration while waiting.
-    - Approval occurs in Core UI after operator authentication.
-    - This is a normal waiting state, not an error state.
-
-
 [TODO] Task 048: Phase 1B — Implement approval result handling
   - Handle final approval or rejection response from Core.
   - Support:

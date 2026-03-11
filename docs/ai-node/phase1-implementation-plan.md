@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 1A Implementation Plan and Module Map
 
 Status: Active
-Implementation status: Partially implemented (Tasks 041-046)
+Implementation status: Partially implemented (Tasks 041-047)
 Last updated: 2026-03-11
 
 ## Scope
@@ -82,8 +82,10 @@ Current implementation files:
 - `src/ai_node/bootstrap/bootstrap_client.py`
 - `src/ai_node/bootstrap/bootstrap_parser.py`
 - `src/ai_node/registration/registration_client.py`
+- `src/ai_node/registration/approval_waiter.py`
 - `tests/test_phase1a_bootstrap.py`
 - `tests/test_registration_client.py`
+- `tests/test_approval_waiter.py`
 
 ## State and Security Guardrails
 

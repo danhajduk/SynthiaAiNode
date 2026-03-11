@@ -45,3 +45,10 @@ Step objective: Implement Core registration request client.
 Chosen fix: Added Python async registration client that builds URL from bootstrap metadata and submits API-only request payload.
 What changed: Added src/ai_node/registration/registration_client.py and tests/test_registration_client.py.
 Verification: Unit test confirms node_type=ai-node payload, URL composition, and lifecycle transition to registration_pending.
+
+###########
+Task #047
+Step objective: Implement pending-approval handling and wait flow.
+Chosen fix: Added a dedicated pending-approval waiter that stores approval metadata, transitions lifecycle state, and polls a status endpoint.
+What changed: Added src/ai_node/registration/approval_waiter.py and tests/test_approval_waiter.py.
+Verification: Unit tests confirm transition to pending_approval, polling until approved, no re-registration calls, and timeout behavior.
