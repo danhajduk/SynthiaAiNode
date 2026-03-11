@@ -2,6 +2,7 @@ import asyncio
 from typing import Callable, Optional
 
 from ai_node.bootstrap.bootstrap_parser import parse_bootstrap_payload, validate_bootstrap_payload
+from ai_node.diagnostics.onboarding_logger import OnboardingDiagnosticsLogger
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 
 
@@ -31,6 +32,7 @@ class BootstrapClient:
         self._lifecycle = lifecycle
         self._mqtt_adapter = mqtt_adapter
         self._logger = logger
+        self._diag = OnboardingDiagnosticsLogger(logger)
         self._max_attempts = max_attempts
         self._base_delay_seconds = base_delay_seconds
         self._max_delay_seconds = max_delay_seconds
@@ -69,6 +71,9 @@ class BootstrapClient:
                         "[bootstrap-connected] %s",
                         {"host": config.bootstrap_host, "port": config.port, "topic": config.topic},
                     )
+                self._diag.bootstrap_connect(
+                    {"host": config.bootstrap_host, "port": config.port, "topic": config.topic}
+                )
 
                 async def _handle_message(topic: str, raw_payload: object) -> None:
                     if topic != config.topic:
@@ -76,6 +81,7 @@ class BootstrapClient:
 
                     parsed_ok, parsed_value = parse_bootstrap_payload(raw_payload)
                     if not parsed_ok:
+                        self._diag.payload_validation({"result": "ignored", "reason": parsed_value})
                         if hasattr(self._logger, "warning"):
                             self._logger.warning("[bootstrap-payload-ignored] %s", {"reason": parsed_value})
                         return
@@ -86,10 +92,12 @@ class BootstrapClient:
                         supported_versions=supported_bootstrap_versions,
                     )
                     if not valid_ok:
+                        self._diag.payload_validation({"result": "ignored", "reason": valid_value})
                         if hasattr(self._logger, "warning"):
                             self._logger.warning("[bootstrap-payload-ignored] %s", {"reason": valid_value})
                         return
 
+                    self._diag.payload_validation({"result": "accepted", "core_id": valid_value.get("core_id")})
                     self._lifecycle.transition_to(NodeLifecycleState.CORE_DISCOVERED)
                     if callable(on_core_discovered):
                         on_core_discovered(valid_value)
@@ -125,4 +133,5 @@ class BootstrapClient:
         self._running = False
         if self._client is not None and hasattr(self._client, "close"):
             await self._client.close()
+            self._diag.bootstrap_disconnect({"reason": "stop_called"})
             self._client = None

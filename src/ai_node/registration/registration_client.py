@@ -1,4 +1,5 @@
 from ai_node.bootstrap.bootstrap_parser import build_registration_url
+from ai_node.diagnostics.onboarding_logger import OnboardingDiagnosticsLogger
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 
 
@@ -17,6 +18,7 @@ class RegistrationClient:
         self._lifecycle = lifecycle
         self._http_adapter = http_adapter
         self._logger = logger
+        self._diag = OnboardingDiagnosticsLogger(logger)
 
     async def register(
         self,
@@ -54,6 +56,13 @@ class RegistrationClient:
             payload["hostname"] = hostname.strip()
 
         self._lifecycle.transition_to(NodeLifecycleState.REGISTRATION_PENDING)
+        self._diag.registration_attempt(
+            {
+                "url": resolved_url,
+                "node_name": payload["node_name"],
+                "protocol_version": payload["protocol_version"],
+            }
+        )
         if hasattr(self._logger, "info"):
             self._logger.info(
                 "[registration-request] %s",

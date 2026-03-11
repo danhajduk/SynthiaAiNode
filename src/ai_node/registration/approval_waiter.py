@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Optional
 
+from ai_node.diagnostics.onboarding_logger import OnboardingDiagnosticsLogger
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 
 
@@ -48,6 +49,7 @@ class PendingApprovalWaiter:
         self._lifecycle = lifecycle
         self._http_adapter = http_adapter
         self._logger = logger
+        self._diag = OnboardingDiagnosticsLogger(logger)
         self._poll_interval_seconds = poll_interval_seconds
         self._max_polls = max_polls
 
@@ -59,6 +61,9 @@ class PendingApprovalWaiter:
             status_url=registration_response.get("status_url"),
         )
         self._lifecycle.transition_to(NodeLifecycleState.PENDING_APPROVAL)
+        self._diag.approval_wait(
+            {"status": "pending_approval", "approval_url": info.approval_url, "status_url": info.status_url}
+        )
         if hasattr(self._logger, "info"):
             self._logger.info(
                 "[pending-approval] %s",
@@ -73,6 +78,7 @@ class PendingApprovalWaiter:
         for poll_index in range(1, self._max_polls + 1):
             response = await self._http_adapter.get_json(approval_info.status_url)
             status = response.get("status")
+            self._diag.approval_wait({"poll_index": poll_index, "status": status})
             if hasattr(self._logger, "info"):
                 self._logger.info(
                     "[pending-approval-poll] %s",

@@ -108,3 +108,10 @@ Step objective: Enforce Phase 1 security boundaries and redaction guardrails.
 Chosen fix: Added explicit security boundary checks, approval gating helper, and centralized sensitive-field redaction utility integrated into bootstrap validation and trust logging.
 What changed: Added src/ai_node/security/boundaries.py, src/ai_node/security/redaction.py, tests/test_security_boundaries.py, and updated bootstrap/trust tests.
 Verification: Unit tests confirm bootstrap trust-field rejection, approval requirement before trust activation, and secret redaction behavior.
+
+###########
+Task #056
+Step objective: Add structured onboarding diagnostics logs with redaction.
+Chosen fix: Added a centralized diagnostics logger and integrated it across lifecycle, bootstrap, registration, approval waiting, and trust persistence paths.
+What changed: Added src/ai_node/diagnostics/onboarding_logger.py, wired diagnostics into existing modules, and added tests/test_onboarding_logger.py.
+Verification: Unit tests confirm diagnostics execution and sensitive-field redaction in logged payloads.

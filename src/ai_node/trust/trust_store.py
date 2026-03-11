@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Optional, Tuple
 
+from ai_node.diagnostics.onboarding_logger import OnboardingDiagnosticsLogger
 from ai_node.security.redaction import redact_dict
 
 
@@ -78,6 +79,7 @@ class TrustStateStore:
     def __init__(self, *, path: str, logger) -> None:
         self._path = Path(path)
         self._logger = logger
+        self._diag = OnboardingDiagnosticsLogger(logger)
 
     def save(self, trust_state: dict) -> None:
         is_valid, error = validate_trust_state(trust_state)
@@ -88,6 +90,7 @@ class TrustStateStore:
         temp_path = self._path.with_suffix(f"{self._path.suffix}.tmp")
         temp_path.write_text(json.dumps(trust_state, indent=2, sort_keys=True), encoding="utf-8")
         temp_path.replace(self._path)
+        self._diag.trust_persistence({"action": "save", "path": str(self._path)})
         if hasattr(self._logger, "info"):
             self._logger.info("[trust-state-saved] %s", {"path": str(self._path)})
 
@@ -103,6 +106,9 @@ class TrustStateStore:
                     "[trust-state-invalid] %s",
                     {"path": str(self._path), "reason": "invalid_json"},
                 )
+            self._diag.trust_persistence(
+                {"action": "load", "path": str(self._path), "result": "invalid", "reason": "invalid_json"}
+            )
             return None
 
         is_valid, error = validate_trust_state(data)
@@ -112,8 +118,12 @@ class TrustStateStore:
                     "[trust-state-invalid] %s",
                     {"path": str(self._path), "reason": error},
                 )
+            self._diag.trust_persistence(
+                {"action": "load", "path": str(self._path), "result": "invalid", "reason": error}
+            )
             return None
 
+        self._diag.trust_persistence({"action": "load", "path": str(self._path), "result": "valid"})
         if hasattr(self._logger, "info"):
             self._logger.info(
                 "[trust-state-loaded] %s",

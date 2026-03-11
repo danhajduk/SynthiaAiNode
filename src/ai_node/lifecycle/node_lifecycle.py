@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import Callable, Dict, Optional, Set
 
+from ai_node.diagnostics.onboarding_logger import OnboardingDiagnosticsLogger
+
 
 class NodeLifecycleState(str, Enum):
     UNCONFIGURED = "unconfigured"
@@ -51,6 +53,7 @@ class NodeLifecycle:
     ) -> None:
         self._state = NodeLifecycleState.UNCONFIGURED
         self._logger = logger
+        self._diag = OnboardingDiagnosticsLogger(logger)
         self._on_transition = on_transition or (lambda _: None)
 
     def get_state(self) -> NodeLifecycleState:
@@ -70,6 +73,7 @@ class NodeLifecycle:
         payload = {"from": previous.value, "to": next_state.value, **(meta or {})}
         if hasattr(self._logger, "info"):
             self._logger.info("[state-transition] %s", payload)
+        self._diag.state_transition(payload)
         self._on_transition({"from": previous, "to": next_state, "meta": meta or {}})
         return self._state
 

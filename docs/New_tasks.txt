@@ -44,22 +44,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 056: Phase 1D — Add logging and diagnostics for onboarding flow
-  - Add structured logs for:
-    - state transitions
-    - bootstrap connect/disconnect
-    - payload validation
-    - registration attempts
-    - approval waiting
-    - trust persistence load/save
-  - Make logs useful for troubleshooting onboarding failures.
-
-  * Comments, descriptions, rules:
-    - Logs must redact sensitive values.
-    - Prefer concise state-based logs over noisy chatter.
-    - This task exists to make Phase 1 supportable.
-
-
 [TODO] Task 057: Phase 1D — Create Phase 1 test checklist and validation pass
   - Create a manual/integration test checklist covering:
     - first-time bootstrap success
