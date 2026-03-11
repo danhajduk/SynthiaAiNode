@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 2 Implementation Plan and Module Map
 
 Status: Active
-Implementation status: In progress (Tasks 059-065 implemented)
+Implementation status: In progress (Tasks 059-066 implemented)
 Last updated: 2026-03-11
 
 ## Scope
@@ -60,6 +60,9 @@ Out of scope in Phase 2:
 - Task 065:
   - node feature declarations moved to explicit name+enabled representation
   - future prompt-governance readiness is carried as a clearly disabled declaration
+- Task 066:
+  - environment/resource hints module added (hostname, OS/platform, memory class, GPU present)
+  - manifest now validates lightweight environment hints as a required declaration group
 
 ## Phase 2 Module Map (Python)
 

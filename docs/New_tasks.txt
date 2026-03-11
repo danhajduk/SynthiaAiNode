@@ -40,21 +40,6 @@ Do not stop early.
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 066: Phase 2A — Implement environment/resource hint declaration
-  - Add support for light node environment hints in the capability manifest.
-  - Include simple traits such as:
-    - hostname
-    - OS/platform
-    - memory/resource class
-    - GPU present yes/no
-  - Keep this intentionally lightweight.
-
-  * Comments, descriptions, rules:
-    - This is not full monitoring or scheduling metadata.
-    - Hints are for later policy/routing context only.
-    - Do not overbuild hardware inventory in this phase.
-
-
 [STOP HERE]
 
 

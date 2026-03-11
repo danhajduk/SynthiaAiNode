@@ -5,6 +5,10 @@ from ai_node.capabilities.node_features import (
     create_node_feature_declarations,
     validate_node_feature_declarations,
 )
+from ai_node.capabilities.environment_hints import (
+    collect_environment_hints,
+    validate_environment_hints,
+)
 from ai_node.capabilities.providers import validate_provider_capabilities
 from ai_node.capabilities.task_families import validate_task_family_capabilities
 
@@ -49,7 +53,9 @@ def create_capability_manifest(
                 "enabled": _normalize_string_list(enabled_providers or []),
             },
             "node_features": create_node_feature_declarations(node_features),
-            "environment_hints": environment_hints if isinstance(environment_hints, dict) else {},
+            "environment_hints": collect_environment_hints(
+                **(environment_hints if isinstance(environment_hints, dict) else {})
+            ),
         },
         "metadata": {
             "schema_version": CAPABILITY_MANIFEST_SCHEMA_VERSION,
@@ -100,6 +106,9 @@ def validate_capability_manifest(data: object) -> Tuple[bool, Optional[str]]:
         return False, features_error
     if not isinstance(environment_hints, dict):
         return False, "invalid_environment_hints"
+    hints_valid, hints_error = validate_environment_hints(environment_hints)
+    if not hints_valid:
+        return False, hints_error
 
     metadata = data.get("metadata")
     if not isinstance(metadata, dict):

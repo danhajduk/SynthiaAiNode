@@ -21,6 +21,11 @@ from ai_node.capabilities.node_features import (
     create_node_feature_declarations,
     validate_node_feature_declarations,
 )
+from ai_node.capabilities.environment_hints import (
+    VALID_MEMORY_CLASSES,
+    collect_environment_hints,
+    validate_environment_hints,
+)
 
 __all__ = [
     "CAPABILITY_MANIFEST_SCHEMA_VERSION",
@@ -36,4 +41,7 @@ __all__ = [
     "CANONICAL_NODE_FEATURES",
     "create_node_feature_declarations",
     "validate_node_feature_declarations",
+    "VALID_MEMORY_CLASSES",
+    "collect_environment_hints",
+    "validate_environment_hints",
 ]

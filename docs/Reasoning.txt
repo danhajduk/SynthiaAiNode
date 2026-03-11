@@ -248,3 +248,10 @@ Step objective: Implement node feature declaration model separated from AI task-
 Chosen fix: Added canonical node-feature declarations with explicit enabled flags so future features can be represented as disabled rather than implicitly active.
 What changed: Added src/ai_node/capabilities/node_features.py; updated src/ai_node/capabilities/__init__.py and src/ai_node/capabilities/manifest_schema.py; added tests/test_node_features.py; updated tests/test_capability_manifest_schema.py and docs/ai-node/phase2-implementation-plan.md.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_node_features tests.test_capability_manifest_schema -v` passes (7 tests).
+
+###########
+Task #066 (Phase 2)
+Step objective: Implement lightweight environment/resource hint declaration support.
+Chosen fix: Added environment hints module with deterministic fields (hostname, os_platform, memory_class, gpu_present) and integrated validation into manifest schema.
+What changed: Added src/ai_node/capabilities/environment_hints.py; updated src/ai_node/capabilities/__init__.py and src/ai_node/capabilities/manifest_schema.py; added tests/test_environment_hints.py; updated docs/ai-node/phase2-implementation-plan.md.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_environment_hints tests.test_capability_manifest_schema tests.test_task_families tests.test_capability_providers tests.test_node_features -v` passes (16 tests).
