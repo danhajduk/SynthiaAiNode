@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from ai_node.config.bootstrap_config import create_bootstrap_config
@@ -76,6 +77,30 @@ class OnboardingInitiateRequest(BaseModel):
 
 def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     app = FastAPI(title="Synthia AI Node Control API", version="0.1.0")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.get("/")
+    def root():
+        return {
+            "service": "synthia-ai-node-control-api",
+            "status": "ok",
+            "version": "0.1.0",
+            "endpoints": [
+                "/api/node/status",
+                "/api/onboarding/initiate",
+                "/api/health",
+            ],
+        }
+
+    @app.get("/api/health")
+    def health():
+        return {"status": "ok"}
 
     @app.get("/api/node/status")
     def get_node_status():
