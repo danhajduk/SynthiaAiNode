@@ -255,3 +255,10 @@ Step objective: Implement lightweight environment/resource hint declaration supp
 Chosen fix: Added environment hints module with deterministic fields (hostname, os_platform, memory_class, gpu_present) and integrated validation into manifest schema.
 What changed: Added src/ai_node/capabilities/environment_hints.py; updated src/ai_node/capabilities/__init__.py and src/ai_node/capabilities/manifest_schema.py; added tests/test_environment_hints.py; updated docs/ai-node/phase2-implementation-plan.md.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_environment_hints tests.test_capability_manifest_schema tests.test_task_families tests.test_capability_providers tests.test_node_features -v` passes (16 tests).
+
+###########
+Task #067 (Phase 2)
+Step objective: Implement trusted capability declaration API client with response handling.
+Chosen fix: Added a dedicated core API client with strict URL/header construction and explicit response classification (`accepted`, `rejected`, `retryable_failure`).
+What changed: Added src/ai_node/core_api/capability_client.py and src/ai_node/core_api/__init__.py; added tests/test_capability_client.py; updated docs/ai-node/phase2-implementation-plan.md.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_capability_client -v` passes (3 tests).

@@ -43,21 +43,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 067: Phase 2B — Implement capability declaration API client
-  - Build the client/API flow used by the node to submit its capability declaration to Core.
-  - Send the validated capability manifest over the trusted API path.
-  - Handle Core responses for:
-    - accepted
-    - rejected/invalid
-    - retryable failure
-  - Add lifecycle transition support around the submission process.
-
-  * Comments, descriptions, rules:
-    - Capability declaration must happen only after trust activation.
-    - Use trusted identity and tokens from Phase 1.
-    - Do not use bootstrap MQTT for capability declaration.
-
-
 [TODO] Task 068: Phase 2B — Implement capability declaration submission state handling
   - Add state handling around capability declaration.
   - Ensure node behavior cleanly covers:

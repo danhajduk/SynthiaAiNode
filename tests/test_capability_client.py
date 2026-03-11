@@ -1,0 +1,65 @@
+import logging
+import unittest
+
+from ai_node.core_api.capability_client import CapabilityDeclarationClient
+
+
+class _FakeHttpAdapter:
+    def __init__(self, status_code: int, payload: dict):
+        self.status_code = status_code
+        self.payload = payload
+        self.last_url = None
+        self.last_payload = None
+        self.last_headers = None
+
+    async def post_json(self, url: str, payload: dict, headers: dict):
+        self.last_url = url
+        self.last_payload = payload
+        self.last_headers = headers
+        return self.status_code, self.payload
+
+
+class CapabilityClientTests(unittest.IsolatedAsyncioTestCase):
+    async def test_submit_manifest_returns_accepted(self):
+        adapter = _FakeHttpAdapter(200, {"status": "accepted", "accepted_profile_id": "profile-1"})
+        client = CapabilityDeclarationClient(logger=logging.getLogger("capability-client-test"), http_adapter=adapter)
+        result = await client.submit_manifest(
+            core_api_endpoint="http://10.0.0.100:9001/api",
+            trust_token="secret",
+            node_id="node-001",
+            capability_manifest={"manifest_version": "1.0"},
+        )
+        self.assertEqual(result.status, "accepted")
+        self.assertFalse(result.retryable)
+        self.assertEqual(adapter.last_url, "http://10.0.0.100:9001/api/system/nodes/capabilities/declarations")
+        self.assertEqual(adapter.last_headers["X-Synthia-Node-Id"], "node-001")
+        self.assertIn("Bearer secret", adapter.last_headers["Authorization"])
+
+    async def test_submit_manifest_returns_rejected_for_4xx(self):
+        adapter = _FakeHttpAdapter(422, {"detail": "invalid_manifest"})
+        client = CapabilityDeclarationClient(logger=logging.getLogger("capability-client-test"), http_adapter=adapter)
+        result = await client.submit_manifest(
+            core_api_endpoint="http://10.0.0.100:9001",
+            trust_token="secret",
+            node_id="node-001",
+            capability_manifest={"manifest_version": "1.0"},
+        )
+        self.assertEqual(result.status, "rejected")
+        self.assertFalse(result.retryable)
+        self.assertEqual(result.error, "invalid_manifest")
+
+    async def test_submit_manifest_returns_retryable_for_5xx(self):
+        adapter = _FakeHttpAdapter(503, {"detail": "service_unavailable"})
+        client = CapabilityDeclarationClient(logger=logging.getLogger("capability-client-test"), http_adapter=adapter)
+        result = await client.submit_manifest(
+            core_api_endpoint="http://10.0.0.100:9001",
+            trust_token="secret",
+            node_id="node-001",
+            capability_manifest={"manifest_version": "1.0"},
+        )
+        self.assertEqual(result.status, "retryable_failure")
+        self.assertTrue(result.retryable)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -74,3 +74,4 @@ Task 063 (Phase 2): Implement functional task-family declaration - Completed on 
 Task 064 (Phase 2): Implement provider capability and enabled-provider declaration - Completed on 03/11/2026 16:44
 Task 065 (Phase 2): Implement node feature declaration - Completed on 03/11/2026 16:45
 Task 066 (Phase 2): Implement environment/resource hint declaration - Completed on 03/11/2026 16:47
+Task 067 (Phase 2): Implement capability declaration API client - Completed on 03/11/2026 16:51
