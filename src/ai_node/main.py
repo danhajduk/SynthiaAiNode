@@ -9,7 +9,7 @@ from pathlib import Path
 
 import uvicorn
 
-from ai_node.lifecycle.node_lifecycle import NodeLifecycle
+from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 from ai_node.identity.node_identity_store import NodeIdentityStore
 from ai_node.runtime.bootstrap_mqtt_runner import BootstrapMqttRunner
 from ai_node.runtime.bootstrap_timeout import BootstrapConnectTimeoutMonitor
@@ -156,6 +156,17 @@ def run(
                 identity_node_id,
             )
             return 1
+    startup_mode = "bootstrap_onboarding"
+    trusted_runtime_context = {}
+    if isinstance(trust_state, dict):
+        startup_mode = "trusted_resume"
+        trusted_runtime_context = {
+            "node_id": str(trust_state.get("node_id") or "").strip(),
+            "paired_core_id": str(trust_state.get("paired_core_id") or "").strip(),
+            "core_api_endpoint": str(trust_state.get("core_api_endpoint") or "").strip(),
+            "operational_mqtt_host": str(trust_state.get("operational_mqtt_host") or "").strip(),
+            "operational_mqtt_port": trust_state.get("operational_mqtt_port"),
+        }
 
     monitor_ref = {"monitor": None}
 
@@ -172,6 +183,23 @@ def run(
     )
     monitor_ref["monitor"] = timeout_monitor
     timeout_monitor.start()
+    if startup_mode == "trusted_resume":
+        lifecycle.transition_to(
+            NodeLifecycleState.TRUSTED,
+            {"startup_mode": "trusted_resume"},
+        )
+        lifecycle.transition_to(
+            NodeLifecycleState.CAPABILITY_SETUP_PENDING,
+            {"startup_mode": "trusted_resume"},
+        )
+        LOGGER.info(
+            "[startup-path] %s",
+            {
+                "mode": "trusted_resume",
+                "state": NodeLifecycleState.CAPABILITY_SETUP_PENDING.value,
+                "paired_core_id": trusted_runtime_context.get("paired_core_id"),
+            },
+        )
     onboarding_runtime = OnboardingRuntime(
         lifecycle=lifecycle,
         logger=LOGGER,
@@ -194,6 +222,8 @@ def run(
         bootstrap_runner=bootstrap_runner,
         onboarding_runtime=onboarding_runtime,
         node_identity_store=node_identity_store,
+        startup_mode=startup_mode,
+        trusted_runtime_context=trusted_runtime_context,
     )
     app = create_node_control_app(state=control_state, logger=LOGGER)
     LOGGER.info("phase1 modules loaded; control API active")

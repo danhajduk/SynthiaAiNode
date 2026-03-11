@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 2 Implementation Plan and Module Map
 
 Status: Active
-Implementation status: Planned (Tasks 058+)
+Implementation status: In progress (Task 059 implemented)
 Last updated: 2026-03-11
 
 ## Scope
@@ -32,6 +32,14 @@ Out of scope in Phase 2:
 5. Node submits capability declaration to Core over trusted API.
 6. Core accepted profile/version is persisted locally.
 7. Node transitions to `operational` only after accepted declaration.
+
+## Implemented So Far
+
+- Task 059:
+  - startup now performs explicit trusted resume when valid trust-state exists
+  - lifecycle transitions to `trusted -> capability_setup_pending`
+  - persisted bootstrap config path is skipped in trusted resume mode
+  - startup status exposes trusted runtime context for node/core relationship visibility
 
 ## Phase 2 Module Map (Python)
 

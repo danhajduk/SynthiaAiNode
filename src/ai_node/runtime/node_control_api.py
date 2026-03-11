@@ -19,6 +19,8 @@ class NodeControlState:
         bootstrap_runner=None,
         onboarding_runtime=None,
         node_identity_store=None,
+        startup_mode: str = "bootstrap_onboarding",
+        trusted_runtime_context: dict | None = None,
     ) -> None:
         self._lifecycle = lifecycle
         self._config_path = Path(config_path)
@@ -26,6 +28,8 @@ class NodeControlState:
         self._bootstrap_runner = bootstrap_runner
         self._onboarding_runtime = onboarding_runtime
         self._node_identity_store = node_identity_store
+        self._startup_mode = startup_mode
+        self._trusted_runtime_context = trusted_runtime_context or {}
         self._bootstrap_config = None
         self._node_id = None
         self._identity_state = "unknown"
@@ -48,14 +52,20 @@ class NodeControlState:
     def _load_existing_config(self) -> None:
         if not self._config_path.exists():
             return
+        if self._lifecycle.get_state() != NodeLifecycleState.UNCONFIGURED:
+            if hasattr(self._logger, "info"):
+                self._logger.info(
+                    "[node-control] skipping persisted bootstrap config load due to startup state=%s",
+                    self._lifecycle.get_state().value,
+                )
+            return
         try:
             payload = json.loads(self._config_path.read_text(encoding="utf-8"))
             self._bootstrap_config = create_bootstrap_config(payload)
-            if self._lifecycle.get_state() == NodeLifecycleState.UNCONFIGURED:
-                self._lifecycle.transition_to(
-                    NodeLifecycleState.BOOTSTRAP_CONNECTING,
-                    {"source": "persisted_bootstrap_config"},
-                )
+            self._lifecycle.transition_to(
+                NodeLifecycleState.BOOTSTRAP_CONNECTING,
+                {"source": "persisted_bootstrap_config"},
+            )
             self._start_bootstrap_runner_if_available()
         except Exception:
             if hasattr(self._logger, "warning"):
@@ -76,6 +86,8 @@ class NodeControlState:
             "pending_node_nonce": runtime_context.get("pending_node_nonce"),
             "node_id": self._node_id,
             "identity_state": self._identity_state,
+            "startup_mode": self._startup_mode,
+            "trusted_runtime_context": self._trusted_runtime_context,
         }
 
     def _start_bootstrap_runner_if_available(self) -> None:

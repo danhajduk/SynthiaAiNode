@@ -143,6 +143,56 @@ class MainEntrypointTests(unittest.TestCase):
             )
             self.assertEqual(rc, 1)
 
+    def test_run_once_with_valid_trust_state_uses_trusted_resume_startup_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            identity_path = Path(tmp) / "node_identity.json"
+            identity_path.write_text(
+                json.dumps(
+                    {
+                        "node_id": "123e4567-e89b-42d3-a456-426614174000",
+                        "created_at": "2026-03-11T00:00:00Z",
+                        "id_format": "uuidv4",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            trust_path = Path(tmp) / "trust_state.json"
+            trust_path.write_text(
+                json.dumps(
+                    {
+                        "node_id": "123e4567-e89b-42d3-a456-426614174000",
+                        "node_name": "main-ai-node",
+                        "node_type": "ai-node",
+                        "paired_core_id": "core-main",
+                        "core_api_endpoint": "http://10.0.0.100:9001",
+                        "node_trust_token": "token",
+                        "initial_baseline_policy": {"policy_version": "1.0"},
+                        "baseline_policy_version": "1.0",
+                        "operational_mqtt_identity": "main-ai-node",
+                        "operational_mqtt_token": "mqtt-token",
+                        "operational_mqtt_host": "10.0.0.100",
+                        "operational_mqtt_port": 1883,
+                        "bootstrap_mqtt_host": "10.0.0.100",
+                        "registration_timestamp": "2026-03-11T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            log_path = Path(tmp) / "backend.log"
+            rc = run(
+                once=True,
+                interval_seconds=0.01,
+                api_port=0,
+                bootstrap_config_path=f"{tmp}/bootstrap_config.json",
+                trust_state_path=str(trust_path),
+                node_identity_path=str(identity_path),
+                log_file=str(log_path),
+            )
+            self.assertEqual(rc, 0)
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("'startup_mode': 'trusted_resume'", log_text)
+            self.assertIn("'mode': 'trusted_resume'", log_text)
+
 
 if __name__ == "__main__":
     unittest.main()

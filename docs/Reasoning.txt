@@ -199,3 +199,10 @@ Step objective: Create Phase 2 implementation plan and module/file map aligned t
 Chosen fix: Added a dedicated Phase 2 planning document with strict scope boundaries and a concrete Python module map, then linked it from architecture/capability docs.
 What changed: Added docs/ai-node/phase2-implementation-plan.md and updated docs/ai-node-architecture.md, docs/node-capability-declaration.md, docs/ai-node/phase1-overview.md.
 Verification: Links resolve and scope explicitly excludes prompt governance and execution/runtime-manager implementation for this phase.
+
+###########
+Task #059 (Phase 2)
+Step objective: Implement trusted startup handoff path distinct from bootstrap onboarding.
+Chosen fix: Startup now enters `trusted -> capability_setup_pending` when trust-state is valid and skips persisted bootstrap config flow in trusted resume mode.
+What changed: Updated src/ai_node/main.py and src/ai_node/runtime/node_control_api.py; added/updated tests in tests/test_main_entrypoint.py, tests/test_node_control_api.py, tests/test_node_control_fastapi.py; updated docs/ai-node/phase2-implementation-plan.md.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_main_entrypoint tests.test_node_control_api tests.test_node_control_fastapi tests.test_trusted_startup -v` passes (14 tests).

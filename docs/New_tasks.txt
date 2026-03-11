@@ -40,22 +40,6 @@ Do not stop early.
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 059: Phase 2A — Implement post-trust startup handoff
-  - Extend startup flow so a trusted node enters the post-onboarding activation path.
-  - After valid trust-state load:
-    - restore node identity
-    - restore Core relationship
-    - restore operational MQTT/API readiness
-    - transition to `trusted`
-    - transition to `capability_setup_pending`
-  - Ensure this path is distinct from Phase 1 bootstrap onboarding.
-
-  * Comments, descriptions, rules:
-    - A trusted node must not fall back into bootstrap unless trust state is invalid.
-    - This task sets up the handoff from onboarding to node activation.
-    - Do not yet declare capabilities in this task; just reach the correct handoff state.
-
-
 [TODO] Task 060: Phase 2A — Implement provider/service setup configuration model
   - Create the local configuration model for selecting which providers/services are enabled on this node.
   - For Phase 2, support configuration for:

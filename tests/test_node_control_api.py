@@ -35,6 +35,7 @@ class NodeControlApiTests(unittest.TestCase):
             self.assertFalse(payload["bootstrap_configured"])
             self.assertEqual(payload["identity_state"], "unknown")
             self.assertIsNone(payload["node_id"])
+            self.assertEqual(payload["startup_mode"], "bootstrap_onboarding")
 
     def test_status_includes_node_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -92,6 +93,32 @@ class NodeControlApiTests(unittest.TestCase):
             self.assertEqual(payload["status"], "bootstrap_connecting")
             self.assertTrue(payload["bootstrap_configured"])
             self.assertEqual(len(runner.calls), 1)
+
+    def test_trusted_startup_skips_persisted_bootstrap_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bootstrap_config.json"
+            path.write_text(
+                '{"bootstrap_host":"10.0.0.100","node_name":"main-ai-node"}',
+                encoding="utf-8",
+            )
+            lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
+            lifecycle.transition_to(NodeLifecycleState.TRUSTED, {"source": "test"})
+            lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING, {"source": "test"})
+            runner = self._FakeBootstrapRunner()
+            state = NodeControlState(
+                lifecycle=lifecycle,
+                config_path=str(path),
+                logger=logging.getLogger("node-control-test"),
+                bootstrap_runner=runner,
+                startup_mode="trusted_resume",
+                trusted_runtime_context={"paired_core_id": "core-main"},
+            )
+            payload = state.status_payload()
+            self.assertEqual(payload["status"], "capability_setup_pending")
+            self.assertFalse(payload["bootstrap_configured"])
+            self.assertEqual(payload["startup_mode"], "trusted_resume")
+            self.assertEqual(payload["trusted_runtime_context"]["paired_core_id"], "core-main")
+            self.assertEqual(len(runner.calls), 0)
 
 
 if __name__ == "__main__":
