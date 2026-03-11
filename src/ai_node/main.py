@@ -1,8 +1,12 @@
 import argparse
 import logging
+import os
 import signal
 import sys
 import time
+
+from ai_node.lifecycle.node_lifecycle import NodeLifecycle
+from ai_node.runtime.node_control_api import NodeControlApiServer, NodeControlState
 
 
 LOGGER = logging.getLogger("ai_node.main")
@@ -28,21 +32,59 @@ def build_parser() -> argparse.ArgumentParser:
         default=5.0,
         help="Heartbeat interval while running",
     )
+    parser.add_argument(
+        "--api-host",
+        default=os.environ.get("SYNTHIA_API_HOST", "127.0.0.1"),
+        help="Node control API host",
+    )
+    parser.add_argument(
+        "--api-port",
+        type=int,
+        default=int(os.environ.get("SYNTHIA_API_PORT", "8080")),
+        help="Node control API port",
+    )
+    parser.add_argument(
+        "--bootstrap-config-path",
+        default=os.environ.get("SYNTHIA_BOOTSTRAP_CONFIG_PATH", ".run/bootstrap_config.json"),
+        help="Path for persisted bootstrap setup config",
+    )
     return parser
 
 
-def run(*, once: bool, interval_seconds: float) -> int:
+def run(
+    *,
+    once: bool,
+    interval_seconds: float,
+    api_host: str = "127.0.0.1",
+    api_port: int = 8080,
+    bootstrap_config_path: str = ".run/bootstrap_config.json",
+) -> int:
     LOGGER.info("starting ai-node backend")
-    LOGGER.info("phase1 modules loaded; runtime orchestration not yet fully wired")
+    lifecycle = NodeLifecycle(logger=LOGGER)
+    control_state = NodeControlState(
+        lifecycle=lifecycle,
+        config_path=bootstrap_config_path,
+        logger=LOGGER,
+    )
+    control_api = NodeControlApiServer(
+        host=api_host,
+        port=api_port,
+        state=control_state,
+        logger=LOGGER,
+    )
+    control_api.start()
+    LOGGER.info("phase1 modules loaded; control API active")
 
     if once:
+        control_api.stop()
         LOGGER.info("run-once mode complete")
         return 0
 
     while not SHOULD_STOP:
-        LOGGER.info("backend heartbeat")
+        LOGGER.info("backend heartbeat state=%s", lifecycle.get_state().value)
         time.sleep(interval_seconds)
 
+    control_api.stop()
     LOGGER.info("backend stopped cleanly")
     return 0
 
@@ -56,7 +98,13 @@ def main() -> int:
     signal.signal(signal.SIGINT, _handle_signal)
 
     args = build_parser().parse_args()
-    return run(once=args.once, interval_seconds=args.interval_seconds)
+    return run(
+        once=args.once,
+        interval_seconds=args.interval_seconds,
+        api_host=args.api_host,
+        api_port=args.api_port,
+        bootstrap_config_path=args.bootstrap_config_path,
+    )
 
 
 if __name__ == "__main__":

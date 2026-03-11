@@ -31,7 +31,7 @@ PYTHONPATH=src python -m ai_node.main --once
 ```bash
 cd frontend
 npm install
-npm run dev -- --host 0.0.0.0 --port 5174
+npm run dev -- --host 0.0.0.0 --port 8081
 ```
 
 ## Validation
