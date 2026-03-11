@@ -3,10 +3,10 @@ import logging
 import os
 import signal
 import sys
-import time
+import uvicorn
 
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle
-from ai_node.runtime.node_control_api import NodeControlApiServer, NodeControlState
+from ai_node.runtime.node_control_api import NodeControlState, create_node_control_app
 
 
 LOGGER = logging.getLogger("ai_node.main")
@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--api-port",
         type=int,
-        default=int(os.environ.get("SYNTHIA_API_PORT", "8080")),
+        default=int(os.environ.get("SYNTHIA_API_PORT", "9002")),
         help="Node control API port",
     )
     parser.add_argument(
@@ -56,7 +56,7 @@ def run(
     once: bool,
     interval_seconds: float,
     api_host: str = "127.0.0.1",
-    api_port: int = 8080,
+    api_port: int = 9002,
     bootstrap_config_path: str = ".run/bootstrap_config.json",
 ) -> int:
     LOGGER.info("starting ai-node backend")
@@ -66,25 +66,14 @@ def run(
         config_path=bootstrap_config_path,
         logger=LOGGER,
     )
-    control_api = NodeControlApiServer(
-        host=api_host,
-        port=api_port,
-        state=control_state,
-        logger=LOGGER,
-    )
-    control_api.start()
+    app = create_node_control_app(state=control_state, logger=LOGGER)
     LOGGER.info("phase1 modules loaded; control API active")
 
     if once:
-        control_api.stop()
         LOGGER.info("run-once mode complete")
         return 0
 
-    while not SHOULD_STOP:
-        LOGGER.info("backend heartbeat state=%s", lifecycle.get_state().value)
-        time.sleep(interval_seconds)
-
-    control_api.stop()
+    uvicorn.run(app, host=api_host, port=api_port, log_level="info")
     LOGGER.info("backend stopped cleanly")
     return 0
 

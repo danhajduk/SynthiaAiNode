@@ -20,6 +20,8 @@ source .venv/bin/activate
 PYTHONPATH=src python -m ai_node.main
 ```
 
+Backend control APIs are served via FastAPI (default: `0.0.0.0:9002` when using stack env service command).
+
 Smoke-check mode:
 
 ```bash

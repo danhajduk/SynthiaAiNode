@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getTheme, setTheme } from "./theme/theme";
+import { apiGet, apiPost, getApiBase } from "./api";
 import "./app.css";
 
 function ThemeToggle() {
@@ -27,11 +28,7 @@ export default function App() {
 
   async function loadStatus() {
     try {
-      const response = await fetch("/api/node/status");
-      if (!response.ok) {
-        throw new Error(`status request failed (${response.status})`);
-      }
-      const payload = await response.json();
+      const payload = await apiGet("/api/node/status");
       setBackendStatus(payload.status || "unknown");
       setError("");
     } catch (err) {
@@ -51,21 +48,14 @@ export default function App() {
     setSaving(true);
     setError("");
     try {
-      const response = await fetch("/api/onboarding/initiate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const payload = await apiPost("/api/onboarding/initiate", {
           mqtt_host: mqttHost,
           node_name: nodeName,
-        }),
       });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error || `request failed (${response.status})`);
-      }
       setBackendStatus(payload.status || "bootstrap_connecting");
     } catch (err) {
-      setError(String(err?.message || err));
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -82,6 +72,7 @@ export default function App() {
           <ThemeToggle />
           <span className="pill">{backendStatus}</span>
         </div>
+        <p className="muted tiny">API: {getApiBase()}</p>
         {error ? <p className="error">{error}</p> : null}
       </section>
 
