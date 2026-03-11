@@ -73,3 +73,10 @@ Step objective: Implement persistent trust-state storage with validation helpers
 Chosen fix: Added a file-backed trust-state store with strict canonical schema validation and redaction-aware logging.
 What changed: Added src/ai_node/trust/trust_store.py and tests/test_trust_store.py with save/load/validate coverage.
 Verification: Unit tests confirm round-trip persistence, required-field validation, redaction behavior, and corrupted-state fallback to None for fresh onboarding.
+
+###########
+Task #051
+Step objective: Implement trusted startup path using persisted trust-state checks.
+Chosen fix: Added startup-path resolver that branches to trusted resume when trust-state is valid, otherwise starts bootstrap onboarding.
+What changed: Added src/ai_node/trust/trusted_startup.py, updated lifecycle transitions for startup trusted restore, and added tests/test_trusted_startup.py.
+Verification: Unit tests confirm valid trust-state resumes to capability_setup_pending and missing/invalid state starts bootstrap_connecting.

@@ -41,21 +41,6 @@ Do not stop early.
 Do not edit above this line:
 #######################################################################
 
-[TODO] Task 051: Phase 1C — Implement trusted startup path
-  - On startup, check for valid persisted trust state.
-  - If valid trust state exists:
-    - skip bootstrap
-    - restore trusted identity
-    - move to `trusted` / `capability_setup_pending`
-  - If trust state is missing or invalid:
-    - begin bootstrap onboarding again
-
-  * Comments, descriptions, rules:
-    - Previously paired node should not re-onboard on every restart.
-    - Bootstrap is for untrusted nodes only.
-    - Do not implement capability declaration yet; just stop at the proper handoff state.
-
-
 [TODO] Task 052: Phase 1C — Implement operational MQTT credential handoff preparation
   - Store and prepare the Core-issued operational MQTT identity/token and connection info.
   - Define the handoff boundary between:
