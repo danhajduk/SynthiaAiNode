@@ -11,6 +11,29 @@ The AI Node is a remote Synthia service paired to Core, not a Supervisor-managed
 
 Because this repository currently contains architecture planning tasks only, all runtime behavior described here is target design and not yet implemented.
 
+## Section Status Map
+
+Status: Planned
+
+- Architectural Positioning: Planned
+- Authority Separation: Planned
+- Node/Core Responsibility Boundaries: Planned
+- Major Architectural Layers: Planned
+- Bootstrap Flow (Phase 1): Planned
+- Bootstrap Message Contract: Planned
+- Registration Handshake (Phase 2.0): Planned
+- Operator Approval Via Core UI: Planned
+- Initial Trust Activation Payload (Phase 2.1): Planned
+- Local Persisted Node State: Planned
+- Node Lifecycle State Model: Planned
+- Post-Bootstrap Operational Channel Separation: Planned
+- Initial Baseline Policy Structure: Planned
+- Trusted MQTT Operational Identity Model: Planned
+- Reconnect And Resync Behavior: Planned
+- Baseline Status Telemetry Architecture: Planned
+- Security Boundaries: Planned
+- Future placeholders and roadmap sections: Planned
+
 ## Architectural Positioning
 
 - AI Node runs as a remote service and pairs with a Synthia Core instance.
@@ -413,3 +436,11 @@ This is intentionally a placeholder and not a full runtime-controller design in 
 - Preserve Core-governs / Node-executes boundary as capabilities expand.
 - Extend capability and policy layers without collapsing authority boundaries.
 - Capability declaration details are specified in `docs/node-capability-declaration.md`.
+
+## See Also
+
+- [Phase 1 Overview](./phase1-overview.md)
+- [AI Node Capability Declaration](./node-capability-declaration.md)
+- [Synthia Platform Architecture](../../Synthia/docs/platform-architecture.md)
+- [Synthia MQTT Platform](../../Synthia/docs/mqtt-platform.md)
+- [Synthia API Reference](../../Synthia/docs/api-reference.md)

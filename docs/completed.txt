@@ -24,3 +24,6 @@ Task 023: Define security boundaries for bootstrap, trust, and operations - Comp
 Task 024: Define the future execution gateway placeholder - Completed on 03/11/2026 07:21
 Task 025: Define future local runtime manager placeholder - Completed on 03/11/2026 07:21
 Task 026: Create a phased architecture roadmap section - Completed on 03/11/2026 07:21
+Task 027: Normalize AI Node task queue filename to `docs/New_tasks.txt` - Completed on 03/11/2026 08:50
+Task 028: Convert AI Node task queue file to task-entries-only format - Completed on 03/11/2026 08:50
+Task 029: Complete Phase 1 system diagram and add status/cross-link updates across AI Node docs - Completed on 03/11/2026 08:50

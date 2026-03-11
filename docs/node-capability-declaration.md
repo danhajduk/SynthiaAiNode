@@ -11,6 +11,17 @@ Phase 2.2 occurs only after trust activation (Phase 2.1).
 
 Core does not know a node's actual capability profile until the node submits a formal declaration manifest.
 
+## Section Status Map
+
+Status: Planned
+
+- Scope Boundary: Planned
+- Supported Vs Enabled Model: Planned
+- Operator-Driven Provider/Service Selection: Planned
+- Capability Manifest Structure: Planned
+- Submission And Core Acceptance Flow: Planned
+- Governance Boundary: Planned
+
 ## Scope Boundary
 
 Capability declaration is:
@@ -130,3 +141,11 @@ Acceptance semantics:
 
 - Core stores declared capabilities; Core does not invent undeclared node capabilities.
 - Node declares capabilities; node does not self-authorize global governance policy.
+
+## See Also
+
+- [Phase 1 Overview](./phase1-overview.md)
+- [AI Node Architecture](./ai-node-architecture.md)
+- [Synthia Platform Architecture](../../Synthia/docs/platform-architecture.md)
+- [Synthia MQTT Platform](../../Synthia/docs/mqtt-platform.md)
+- [Synthia API Reference](../../Synthia/docs/api-reference.md)
