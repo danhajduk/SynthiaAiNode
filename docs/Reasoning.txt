@@ -1,0 +1,18 @@
+Task #001
+Step objective: Define the initial AI Node architecture document.
+What changed: Added docs/ai-node-architecture.md with remote-service positioning, architectural layers, authority separation, and out-of-scope boundaries. Updated docs/New-Tasks.txt queue and docs/completed.txt.
+Verification: Repository contains no implementation modules beyond docs task definitions; document explicitly marks implementation status as Not developed and frames content as architecture target.
+
+###########
+Task #002
+Step objective: Define strict Core/AI Node responsibility boundaries.
+What changed: Updated docs/ai-node-architecture.md with a dedicated Node/Core boundary section, explicit responsibility ownership, and must-not constraints for both sides.
+Verification: Boundaries align with task constraints (Core governs; AI Node executes/enforces locally) and maintain the document's Not developed implementation status.
+
+###########
+Task #003
+Step objective: Define the initial bootstrap flow for a brand-new node.
+What changed: Added a Bootstrap Flow (Phase 1) section to docs/ai-node-architecture.md covering required input, fixed connection rules (anonymous subscribe-only on 1884), topic purpose, and channel restrictions.
+Verification: Section explicitly enforces read-only bootstrap behavior and excludes secrets, telemetry, and control traffic as required.
+
+###########

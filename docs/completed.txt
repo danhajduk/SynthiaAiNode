@@ -1,0 +1,3 @@
+Task 001: Define the AI Node architecture document - Completed on 03/11/2026 07:10
+Task 002: Define Node/Core responsibility boundaries - Completed on 03/11/2026 07:12
+Task 003: Define the bootstrap flow (Phase 1) - Completed on 03/11/2026 07:13
