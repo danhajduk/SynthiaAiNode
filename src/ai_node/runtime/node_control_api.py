@@ -139,6 +139,11 @@ class NodeControlState:
             raise ValueError("governance refresh is not configured")
         return await self._capability_runner.refresh_governance_once()
 
+    def recover_from_degraded(self) -> dict:
+        if self._capability_runner is None or not hasattr(self._capability_runner, "recover_from_degraded"):
+            raise ValueError("degraded recovery is not configured")
+        return self._capability_runner.recover_from_degraded()
+
     def governance_status_payload(self) -> dict:
         if self._capability_runner is None or not hasattr(self._capability_runner, "status_payload"):
             return {"configured": False, "status": None}
@@ -230,6 +235,7 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
                 "/api/capabilities/declare",
                 "/api/governance/status",
                 "/api/governance/refresh",
+                "/api/node/recover",
                 "/api/health",
             ],
         }
@@ -282,6 +288,13 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     async def post_governance_refresh():
         try:
             return await state.refresh_governance()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/node/recover")
+    def post_node_recover():
+        try:
+            return state.recover_from_degraded()
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

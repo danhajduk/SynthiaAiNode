@@ -46,23 +46,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 074: Phase 2C — Implement degraded handling for capability/governance path
-  - Handle temporary failures in:
-    - capability declaration submission
-    - governance sync
-    - trusted operational communication
-  - Move node to `degraded` when appropriate.
-  - Allow recovery back to:
-    - capability setup pending
-    - operational
-    depending on where the failure occurred
-
-  * Comments, descriptions, rules:
-    - Degraded must preserve trust unless trust itself is revoked/corrupted.
-    - Recovery behavior should be deterministic and logged.
-    - Avoid bootstrapping again unless trust state is invalid.
-
-
 [TODO] Task 075: Phase 2C — Implement secure storage updates for Phase 2 state
   - Extend local persisted state to include Phase 2 metadata such as:
     - enabled provider/service selection

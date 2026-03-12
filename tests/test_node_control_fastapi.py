@@ -34,6 +34,9 @@ class NodeControlFastApiTests(unittest.TestCase):
         async def refresh_governance_once(self):
             return {"status": "synced"}
 
+        def recover_from_degraded(self):
+            return {"status": "recovered", "target_state": "capability_setup_pending"}
+
         def status_payload(self):
             return {
                 "status": "idle",
@@ -91,6 +94,10 @@ class NodeControlFastApiTests(unittest.TestCase):
             governance_refresh_response = client.post("/api/governance/refresh")
             self.assertEqual(governance_refresh_response.status_code, 200)
             self.assertEqual(governance_refresh_response.json()["status"], "synced")
+
+            node_recover_response = client.post("/api/node/recover")
+            self.assertEqual(node_recover_response.status_code, 200)
+            self.assertEqual(node_recover_response.json()["status"], "recovered")
 
 
 if __name__ == "__main__":

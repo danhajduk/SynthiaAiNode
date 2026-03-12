@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 2 Implementation Plan and Module Map
 
 Status: Active
-Implementation status: In progress (Tasks 059-073 implemented)
+Implementation status: In progress (Tasks 059-074 implemented)
 Last updated: 2026-03-11
 
 ## Scope
@@ -90,6 +90,10 @@ Out of scope in Phase 2:
   - baseline trusted status telemetry publisher added over operational MQTT channels
   - activation/governance flow now emits compact trusted status events for operational diagnostics
   - telemetry path uses trust-issued operational credentials and does not use bootstrap MQTT
+- Task 074:
+  - temporary capability/governance/operational-telemetry failures now transition to `degraded`
+  - deterministic recovery path added to restore either `capability_setup_pending` or `operational`
+  - trust-state is preserved during degraded handling; node does not reboot into bootstrap path
 
 ## Phase 2 Module Map (Python)
 

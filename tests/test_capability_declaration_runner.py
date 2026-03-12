@@ -124,6 +124,14 @@ class _FakeTelemetryPublisher:
         return {"published": True, "last_error": None, "last_topic": "synthia/nodes/node-001/status"}
 
 
+class _FakeTelemetryPublisherFailure:
+    def status_payload(self):
+        return {"published": False, "last_topic": "synthia/nodes/node-001/status"}
+
+    async def publish_status(self, **_kwargs):
+        return {"published": False, "last_error": "mqtt_unavailable", "last_topic": "synthia/nodes/node-001/status"}
+
+
 class _FakeCapabilityStateStore:
     def __init__(self, existing=None):
         self.saved = None
@@ -197,7 +205,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
-        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.CAPABILITY_DECLARATION_FAILED_RETRY_PENDING)
+        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.DEGRADED)
         self.assertEqual(runner.status_payload()["status"], "retry_pending")
 
     async def test_loads_accepted_profile_from_state_store_on_startup(self):
@@ -249,7 +257,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
-        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.CAPABILITY_DECLARATION_FAILED_RETRY_PENDING)
+        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.DEGRADED)
         self.assertEqual(runner.status_payload()["status"], "retry_pending")
 
     async def test_governance_refresh_returns_retryable_with_existing_bundle(self):
@@ -302,8 +310,53 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
-        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.CAPABILITY_DECLARATION_FAILED_RETRY_PENDING)
+        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.DEGRADED)
         self.assertEqual(runner.status_payload()["status"], "retry_pending")
+
+    async def test_recover_from_degraded_to_capability_setup_pending(self):
+        lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
+        lifecycle.transition_to(NodeLifecycleState.TRUSTED)
+        lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
+        lifecycle.transition_to(NodeLifecycleState.CAPABILITY_DECLARATION_IN_PROGRESS)
+        lifecycle.transition_to(NodeLifecycleState.CAPABILITY_DECLARATION_FAILED_RETRY_PENDING)
+        lifecycle.transition_to(NodeLifecycleState.DEGRADED)
+        runner = CapabilityDeclarationRunner(
+            lifecycle=lifecycle,
+            logger=logging.getLogger("capability-runner-test"),
+            trust_store=_FakeTrustStore(),
+            provider_selection_store=_FakeProviderSelectionStore(),
+            node_id="node-001",
+            capability_state_store=_FakeCapabilityStateStore(),
+            governance_state_store=_FakeGovernanceStateStore(),
+            capability_client=_FakeClientAccepted(),
+            governance_client=_FakeGovernanceClientSynced(),
+            operational_readiness_checker=_FakeOperationalReadinessNotReady(),
+            telemetry_publisher=_FakeTelemetryPublisher(),
+        )
+        result = runner.recover_from_degraded()
+        self.assertEqual(result["target_state"], NodeLifecycleState.CAPABILITY_SETUP_PENDING.value)
+        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.CAPABILITY_SETUP_PENDING)
+
+    async def test_telemetry_publish_failure_moves_to_degraded(self):
+        lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
+        lifecycle.transition_to(NodeLifecycleState.TRUSTED)
+        lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
+        runner = CapabilityDeclarationRunner(
+            lifecycle=lifecycle,
+            logger=logging.getLogger("capability-runner-test"),
+            trust_store=_FakeTrustStore(),
+            provider_selection_store=_FakeProviderSelectionStore(),
+            node_id="node-001",
+            capability_state_store=_FakeCapabilityStateStore(),
+            governance_state_store=_FakeGovernanceStateStore(),
+            capability_client=_FakeClientAccepted(),
+            governance_client=_FakeGovernanceClientSynced(),
+            operational_readiness_checker=_FakeOperationalReadinessReady(),
+            telemetry_publisher=_FakeTelemetryPublisherFailure(),
+        )
+        result = await runner.submit_once()
+        self.assertEqual(result["status"], "accepted")
+        self.assertEqual(lifecycle.get_state(), NodeLifecycleState.DEGRADED)
 
 
 if __name__ == "__main__":

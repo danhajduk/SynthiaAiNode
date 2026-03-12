@@ -81,3 +81,4 @@ Task 070 (Phase 2): Implement baseline governance sync after capability acceptan
 Task 071 (Phase 2): Implement governance versioning and freshness tracking - Completed on 03/11/2026 17:09
 Task 072 (Phase 2): Implement trusted operational MQTT connection readiness - Completed on 03/11/2026 17:12
 Task 073 (Phase 2): Implement baseline trusted status telemetry - Completed on 03/11/2026 17:14
+Task 074 (Phase 2): Implement degraded handling for capability/governance path - Completed on 03/11/2026 17:17

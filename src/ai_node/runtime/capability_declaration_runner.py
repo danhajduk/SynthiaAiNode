@@ -178,6 +178,10 @@ class CapabilityDeclarationRunner:
                         "retryable": governance_result.retryable,
                     },
                 )
+                self._lifecycle.transition_to(
+                    NodeLifecycleState.DEGRADED,
+                    {"source": "governance_sync", "reason": governance_result.error or "governance_sync_failed"},
+                )
                 self._status = "retry_pending" if governance_result.retryable else "rejected"
                 self._last_error = governance_result.error
                 return {
@@ -207,6 +211,13 @@ class CapabilityDeclarationRunner:
                         "retryable": True,
                     },
                 )
+                self._lifecycle.transition_to(
+                    NodeLifecycleState.DEGRADED,
+                    {
+                        "source": "operational_mqtt_readiness",
+                        "reason": readiness_result.get("last_error") or "operational_mqtt_not_ready",
+                    },
+                )
                 self._status = "retry_pending"
                 self._last_error = str(readiness_result.get("last_error") or "operational_mqtt_not_ready")
                 return {
@@ -219,11 +230,6 @@ class CapabilityDeclarationRunner:
                     "operational_mqtt_readiness": readiness_result,
                 }
 
-            await self._emit_status_telemetry(
-                trust_state=trust_state,
-                lifecycle_state=NodeLifecycleState.OPERATIONAL.value,
-                overall_status="operational",
-            )
             self._lifecycle.transition_to(
                 NodeLifecycleState.CAPABILITY_DECLARATION_ACCEPTED,
                 {"source": "capability_declaration_runner"},
@@ -231,6 +237,11 @@ class CapabilityDeclarationRunner:
             self._lifecycle.transition_to(
                 NodeLifecycleState.OPERATIONAL,
                 {"source": "capability_declaration_runner"},
+            )
+            await self._emit_status_telemetry(
+                trust_state=trust_state,
+                lifecycle_state=NodeLifecycleState.OPERATIONAL.value,
+                overall_status="operational",
             )
             self._status = "accepted"
             self._last_error = None
@@ -249,6 +260,10 @@ class CapabilityDeclarationRunner:
                 "error": result.error,
                 "retryable": result.retryable,
             },
+        )
+        self._lifecycle.transition_to(
+            NodeLifecycleState.DEGRADED,
+            {"source": "capability_declaration_runner", "reason": result.error or "capability_submission_failed"},
         )
         self._status = "retry_pending" if result.retryable else "rejected"
         self._last_error = result.error
@@ -302,9 +317,39 @@ class CapabilityDeclarationRunner:
             "governance_status": self._governance_status,
         }
 
-    async def _emit_status_telemetry(self, *, trust_state: dict, lifecycle_state: str, overall_status: str) -> None:
+    def recover_from_degraded(self) -> dict:
+        if self._lifecycle.get_state() != NodeLifecycleState.DEGRADED:
+            raise ValueError("node is not in degraded state")
+
+        target_state = NodeLifecycleState.CAPABILITY_SETUP_PENDING
+        readiness = (
+            self._operational_readiness_checker.status_payload()
+            if hasattr(self._operational_readiness_checker, "status_payload")
+            else {}
+        )
+        governance_fresh = self._governance_status.get("state") == "fresh"
+        operational_ready = bool(readiness.get("ready"))
+        if self._accepted_profile and governance_fresh and operational_ready:
+            target_state = NodeLifecycleState.OPERATIONAL
+
+        self._lifecycle.transition_to(
+            target_state,
+            {
+                "source": "capability_declaration_runner_recovery",
+                "governance_state": self._governance_status.get("state"),
+                "operational_mqtt_ready": operational_ready,
+            },
+        )
+        if target_state == NodeLifecycleState.OPERATIONAL:
+            self._status = "accepted"
+            self._last_error = None
+        else:
+            self._status = "idle"
+        return {"status": "recovered", "target_state": target_state.value, "capability_status": self._status}
+
+    async def _emit_status_telemetry(self, *, trust_state: dict, lifecycle_state: str, overall_status: str) -> dict | None:
         if self._telemetry_publisher is None or not hasattr(self._telemetry_publisher, "publish_status"):
-            return
+            return None
         payload = {
             "lifecycle_state": lifecycle_state,
             "overall_status": overall_status,
@@ -318,11 +363,17 @@ class CapabilityDeclarationRunner:
                 else None
             ),
         }
-        await self._telemetry_publisher.publish_status(
+        result = await self._telemetry_publisher.publish_status(
             trust_state=trust_state,
             node_id=self._node_id,
             payload=payload,
         )
+        if not result.get("published") and self._lifecycle.get_state() != NodeLifecycleState.DEGRADED:
+            self._lifecycle.transition_to(
+                NodeLifecycleState.DEGRADED,
+                {"source": "trusted_status_telemetry", "reason": result.get("last_error") or "telemetry_publish_failed"},
+            )
+        return result
 
 
 def _build_governance_payload(*, governance_payload: dict, trust_state: dict) -> dict:
