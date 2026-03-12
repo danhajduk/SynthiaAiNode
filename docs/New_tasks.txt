@@ -49,19 +49,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 078: Phase 2D — Finalize Phase 2 implementation review and handoff note
-  - Review implemented Phase 2 behavior against the architecture/docs.
-  - Document any deviations, follow-up fixes, or deferred edge cases.
-  - Prepare a short handoff summary for the next phase:
-    - prompt/service registration
-    - prompt probation
-    - execution gateway preparation
-
-  * Comments, descriptions, rules:
-    - Phase 2 is complete only when the node is trusted, capability-known, governance-synced, and operationally ready.
-    - Do not begin prompt registration work inside this task.
-    - This task cleanly closes Phase 2.
-
 [TODO] Task 079: Define the UI state model for the AI Node dashboard
   - Create a canonical UI state model representing the node lifecycle and operational status.
   - The UI must support displaying:
