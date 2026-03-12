@@ -112,6 +112,18 @@ class _FakeOperationalReadinessNotReady:
         return self.status_payload()
 
 
+class _FakeTelemetryPublisher:
+    def __init__(self):
+        self.last = None
+
+    def status_payload(self):
+        return {"published": self.last is not None, "last_topic": "synthia/nodes/node-001/status"}
+
+    async def publish_status(self, **kwargs):
+        self.last = kwargs
+        return {"published": True, "last_error": None, "last_topic": "synthia/nodes/node-001/status"}
+
+
 class _FakeCapabilityStateStore:
     def __init__(self, existing=None):
         self.saved = None
@@ -143,6 +155,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
         state_store = _FakeCapabilityStateStore()
         governance_store = _FakeGovernanceStateStore()
+        telemetry = _FakeTelemetryPublisher()
         runner = CapabilityDeclarationRunner(
             lifecycle=lifecycle,
             logger=logging.getLogger("capability-runner-test"),
@@ -154,6 +167,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             capability_client=_FakeClientAccepted(),
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
+            telemetry_publisher=telemetry,
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "accepted")
@@ -164,6 +178,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result["governance_bundle"])
         self.assertEqual(governance_store.saved["policy_version"], "1.0")
         self.assertEqual(runner.status_payload()["governance_status"]["state"], "fresh")
+        self.assertIsNotNone(telemetry.last)
 
     async def test_retryable_submission_transitions_to_retry_pending(self):
         lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
@@ -178,6 +193,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             capability_client=_FakeClientRetry(),
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
+            telemetry_publisher=_FakeTelemetryPublisher(),
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
@@ -209,6 +225,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             capability_client=_FakeClientAccepted(),
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
+            telemetry_publisher=_FakeTelemetryPublisher(),
         )
         status = runner.status_payload()
         self.assertEqual(status["status"], "accepted")
@@ -228,6 +245,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             capability_client=_FakeClientAccepted(),
             governance_client=_FakeGovernanceClientRetry(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
+            telemetry_publisher=_FakeTelemetryPublisher(),
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
@@ -280,6 +298,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             capability_client=_FakeClientAccepted(),
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessNotReady(),
+            telemetry_publisher=_FakeTelemetryPublisher(),
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")

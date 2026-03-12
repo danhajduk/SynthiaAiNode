@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 2 Implementation Plan and Module Map
 
 Status: Active
-Implementation status: In progress (Tasks 059-072 implemented)
+Implementation status: In progress (Tasks 059-073 implemented)
 Last updated: 2026-03-11
 
 ## Scope
@@ -86,6 +86,10 @@ Out of scope in Phase 2:
   - post-trust operational MQTT readiness checker added as a dedicated runtime path
   - readiness validates operational MQTT host/port/identity/token without reusing bootstrap flow
   - transition to operational now requires successful operational MQTT readiness after governance sync
+- Task 073:
+  - baseline trusted status telemetry publisher added over operational MQTT channels
+  - activation/governance flow now emits compact trusted status events for operational diagnostics
+  - telemetry path uses trust-issued operational credentials and does not use bootstrap MQTT
 
 ## Phase 2 Module Map (Python)
 
@@ -95,6 +99,7 @@ src/ai_node/
     post_trust_handoff.py          # startup trusted continuation and readiness bootstrap
     capability_declaration_runner.py # orchestrates declaration submit/retry/accept flow
     operational_mqtt_readiness.py  # trusted operational MQTT connection readiness checks
+    trusted_status_telemetry.py    # trusted status telemetry publisher over operational MQTT
   config/
     provider_selection_config.py   # supported/enabled provider config model + validation
   capabilities/

@@ -10,6 +10,7 @@ from ai_node.core_api.governance_client import GovernanceSyncClient
 from ai_node.governance.freshness import evaluate_governance_freshness
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 from ai_node.runtime.operational_mqtt_readiness import OperationalMqttReadinessChecker
+from ai_node.runtime.trusted_status_telemetry import TrustedStatusTelemetryPublisher
 
 
 class CapabilityDeclarationRunner:
@@ -26,6 +27,7 @@ class CapabilityDeclarationRunner:
         capability_client=None,
         governance_client=None,
         operational_readiness_checker=None,
+        telemetry_publisher=None,
     ) -> None:
         self._lifecycle = lifecycle
         self._logger = logger
@@ -39,6 +41,7 @@ class CapabilityDeclarationRunner:
         self._operational_readiness_checker = operational_readiness_checker or OperationalMqttReadinessChecker(
             logger=logger
         )
+        self._telemetry_publisher = telemetry_publisher or TrustedStatusTelemetryPublisher(logger=logger)
         self._status = "idle"
         self._last_error = None
         self._last_submitted_at = None
@@ -62,6 +65,9 @@ class CapabilityDeclarationRunner:
                 self._operational_readiness_checker.status_payload()
                 if hasattr(self._operational_readiness_checker, "status_payload")
                 else None
+            ),
+            "telemetry": (
+                self._telemetry_publisher.status_payload() if hasattr(self._telemetry_publisher, "status_payload") else None
             ),
         }
 
@@ -212,6 +218,12 @@ class CapabilityDeclarationRunner:
                     "governance_bundle": governance_payload,
                     "operational_mqtt_readiness": readiness_result,
                 }
+
+            await self._emit_status_telemetry(
+                trust_state=trust_state,
+                lifecycle_state=NodeLifecycleState.OPERATIONAL.value,
+                overall_status="operational",
+            )
             self._lifecycle.transition_to(
                 NodeLifecycleState.CAPABILITY_DECLARATION_ACCEPTED,
                 {"source": "capability_declaration_runner"},
@@ -276,6 +288,12 @@ class CapabilityDeclarationRunner:
             refresh_state="core_temporarily_unavailable" if governance_result.retryable else "sync_rejected",
             last_refresh_error=governance_result.error,
         )
+        if self._governance_status.get("state") == "stale":
+            await self._emit_status_telemetry(
+                trust_state=trust_state,
+                lifecycle_state=self._lifecycle.get_state().value,
+                overall_status="governance_stale",
+            )
         return {
             "status": governance_result.status,
             "retryable": governance_result.retryable,
@@ -283,6 +301,28 @@ class CapabilityDeclarationRunner:
             "result": governance_result.payload,
             "governance_status": self._governance_status,
         }
+
+    async def _emit_status_telemetry(self, *, trust_state: dict, lifecycle_state: str, overall_status: str) -> None:
+        if self._telemetry_publisher is None or not hasattr(self._telemetry_publisher, "publish_status"):
+            return
+        payload = {
+            "lifecycle_state": lifecycle_state,
+            "overall_status": overall_status,
+            "trusted": True,
+            "capability_state": self._status,
+            "governance_state": self._governance_status.get("state"),
+            "governance_version": self._governance_status.get("active_governance_version"),
+            "operational_mqtt_ready": (
+                self._operational_readiness_checker.status_payload().get("ready")
+                if hasattr(self._operational_readiness_checker, "status_payload")
+                else None
+            ),
+        }
+        await self._telemetry_publisher.publish_status(
+            trust_state=trust_state,
+            node_id=self._node_id,
+            payload=payload,
+        )
 
 
 def _build_governance_payload(*, governance_payload: dict, trust_state: dict) -> dict:

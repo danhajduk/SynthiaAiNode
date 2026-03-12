@@ -46,24 +46,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 073: Phase 2C — Implement baseline trusted status telemetry
-  - Emit trusted node telemetry/status after capability acceptance and governance sync.
-  - Include state/status such as:
-    - trusted
-    - capability setup pending
-    - capability declared
-    - governance active
-    - governance stale
-    - degraded
-    - operational
-  - Route via trusted operational channels.
-
-  * Comments, descriptions, rules:
-    - This remains node-operational telemetry, not AI workload telemetry.
-    - Keep payloads small, useful, and free of secrets.
-    - Do not use bootstrap MQTT for any telemetry.
-
-
 [TODO] Task 074: Phase 2C — Implement degraded handling for capability/governance path
   - Handle temporary failures in:
     - capability declaration submission
