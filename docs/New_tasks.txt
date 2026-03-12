@@ -48,21 +48,3 @@ Do not edit above this line:
 
 [STOP HERE]
 
-
-[TODO] Task 090: Create UI validation checklist for the dashboard
-  - Verify that the dashboard correctly reflects:
-    - unconfigured node
-    - onboarding in progress
-    - pending approval
-    - trusted node
-    - operational node
-    - degraded node
-  - Confirm that:
-    - lifecycle colors update correctly
-    - cards update after state transitions
-    - service controls work as expected
-
-  * Comments, descriptions, rules:
-    - This checklist ensures UI accuracy during lifecycle transitions.
-    - Validate behavior across browser refreshes and restarts.
-    - This task finalizes the UI enhancement phase.

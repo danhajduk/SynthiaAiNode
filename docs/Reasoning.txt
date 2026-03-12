@@ -414,3 +414,9 @@ Step objective: Add an expandable diagnostics panel for safe UI troubleshooting 
 Chosen fix: Added collapsible diagnostics section with lifecycle state, API base/endpoints, last backend update timestamp, UI version, and clipboard copy action.
 What changed: Updated frontend/src/App.jsx and frontend/src/app.css.
 Verification: `cd frontend && npm run build` passes.
+
+###########
+Task #090
+Step objective: Create a practical UI validation checklist covering lifecycle and dashboard behavior.
+What changed: Added docs/ai-node/ui-validation-checklist.md with scenario checks for unconfigured/onboarding/pending/trusted/operational/degraded states, color/indicator checks, dynamic refresh behavior, service controls, diagnostics panel, and regression validation.
+Verification: Checklist items align with currently implemented frontend cards/components and backend status/service endpoints.
