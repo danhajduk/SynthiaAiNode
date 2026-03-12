@@ -74,7 +74,11 @@ class CapabilityDeclarationClient:
         if hasattr(self._logger, "info"):
             self._logger.info("[capability-declare-request] %s", {"url": url, "node_id": node_id})
 
-        status_code, payload = await self._http_adapter.post_json(url, capability_manifest, headers)
+        status_code, payload = await self._http_adapter.post_json(
+            url,
+            {"manifest": capability_manifest},
+            headers,
+        )
         result = _classify_capability_submission_response(status_code=status_code, payload=payload)
         if hasattr(self._logger, "info"):
             self._logger.info(
