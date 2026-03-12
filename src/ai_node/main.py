@@ -289,6 +289,7 @@ def run(
         trust_store=trust_state_store,
         provider_selection_store=provider_selection_store,
         node_id=node_identity["node_id"],
+        node_software_version=node_software_version,
         capability_state_store=capability_state_store,
         governance_state_store=governance_state_store,
         phase2_state_store=phase2_state_store,

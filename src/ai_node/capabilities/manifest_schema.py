@@ -2,6 +2,11 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 from ai_node.capabilities.node_features import (
+    CAPABILITY_DECLARATION_SUPPORT,
+    OPERATIONAL_MQTT_SUPPORT,
+    POLICY_ENFORCEMENT_SUPPORT,
+    PROMPT_GOVERNANCE_READY,
+    TELEMETRY_SUPPORT,
     create_node_feature_declarations,
     validate_node_feature_declarations,
 )
@@ -33,6 +38,8 @@ def create_capability_manifest(
     *,
     node_id: str,
     node_name: str,
+    node_type: str = "ai-node",
+    node_software_version: str = "0.1.0",
     task_families: list[str] | None = None,
     supported_providers: list[str] | None = None,
     enabled_providers: list[str] | None = None,
@@ -44,25 +51,40 @@ def create_capability_manifest(
     resolved_environment_hints = (
         environment_hints if isinstance(environment_hints, dict) else collect_environment_hints()
     )
+    feature_declarations = create_node_feature_declarations(node_features)
+    feature_map = {str(item.get("name")): bool(item.get("enabled")) for item in feature_declarations if isinstance(item, dict)}
     manifest = {
         "manifest_version": str(manifest_version).strip(),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "node_id": str(node_id).strip(),
-        "node_name": str(node_name).strip(),
-        "capabilities": {
-            "task_families": _normalize_string_list(task_families or []),
-            "providers": {
-                "supported": _normalize_string_list(supported_providers or []),
-                "enabled": _normalize_string_list(enabled_providers or []),
-            },
-            "node_features": create_node_feature_declarations(node_features),
-            "environment_hints": resolved_environment_hints,
+        "node": {
+            "node_id": str(node_id).strip(),
+            "node_type": str(node_type).strip() or "ai-node",
+            "node_name": str(node_name).strip(),
+            "node_software_version": str(node_software_version).strip() or "0.1.0",
         },
-        "metadata": {
-            "schema_version": CAPABILITY_MANIFEST_SCHEMA_VERSION,
-            **(metadata if isinstance(metadata, dict) else {}),
+        "declared_task_families": _normalize_string_list(task_families or []),
+        "supported_providers": _normalize_string_list(supported_providers or []),
+        "enabled_providers": _normalize_string_list(enabled_providers or []),
+        "node_features": {
+            "telemetry": feature_map.get(TELEMETRY_SUPPORT, True),
+            "governance_refresh": feature_map.get(CAPABILITY_DECLARATION_SUPPORT, True),
+            "lifecycle_events": feature_map.get(OPERATIONAL_MQTT_SUPPORT, True),
+            "provider_failover": feature_map.get(POLICY_ENFORCEMENT_SUPPORT, True),
         },
+        "environment_hints": {
+            "deployment_target": "edge",
+            "acceleration": "gpu" if bool(resolved_environment_hints.get("gpu_present")) else "cpu",
+            "network_tier": "lan",
+            "region": "local",
+        },
+        "metadata": {"schema_version": CAPABILITY_MANIFEST_SCHEMA_VERSION, **(metadata if isinstance(metadata, dict) else {})},
     }
+    if feature_map.get(PROMPT_GOVERNANCE_READY, False):
+        manifest["node_features"]["governance_refresh"] = True
+    if _is_non_empty_string(resolved_environment_hints.get("hostname")):
+        manifest["metadata"]["hostname"] = str(resolved_environment_hints.get("hostname")).strip()
+    if _is_non_empty_string(resolved_environment_hints.get("os_platform")):
+        manifest["metadata"]["os_platform"] = str(resolved_environment_hints.get("os_platform")).strip()
+    manifest["metadata"]["generated_at"] = datetime.now(timezone.utc).isoformat()
     is_valid, error = validate_capability_manifest(manifest)
     if not is_valid:
         raise ValueError(f"invalid capability manifest: {error}")
@@ -74,42 +96,47 @@ def validate_capability_manifest(data: object) -> Tuple[bool, Optional[str]]:
         return False, "invalid_manifest_object"
     if not _is_non_empty_string(data.get("manifest_version")):
         return False, "invalid_manifest_version"
-    if not _is_non_empty_string(data.get("generated_at")):
-        return False, "invalid_generated_at"
-    if not _is_non_empty_string(data.get("node_id")):
+
+    node = data.get("node")
+    if not isinstance(node, dict):
+        return False, "invalid_node"
+    if not _is_non_empty_string(node.get("node_id")):
         return False, "invalid_node_id"
-    if not _is_non_empty_string(data.get("node_name")):
+    if not _is_non_empty_string(node.get("node_type")):
+        return False, "invalid_node_type"
+    if not _is_non_empty_string(node.get("node_name")):
         return False, "invalid_node_name"
+    if not _is_non_empty_string(node.get("node_software_version")):
+        return False, "invalid_node_software_version"
 
-    capabilities = data.get("capabilities")
-    if not isinstance(capabilities, dict):
-        return False, "invalid_capabilities"
-
-    task_families = capabilities.get("task_families")
-    providers = capabilities.get("providers")
-    node_features = capabilities.get("node_features")
-    environment_hints = capabilities.get("environment_hints")
-
+    task_families = data.get("declared_task_families")
     if not isinstance(task_families, list):
-        return False, "invalid_task_families"
+        return False, "invalid_declared_task_families"
     task_family_valid, task_family_error = validate_task_family_capabilities(task_families)
     if not task_family_valid:
         return False, task_family_error
-    if not isinstance(providers, dict):
-        return False, "invalid_providers"
-    providers_valid, providers_error = validate_provider_capabilities(providers)
-    if not providers_valid:
-        return False, providers_error
-    if not isinstance(node_features, list):
+
+    supported_providers = _normalize_string_list(data.get("supported_providers"))
+    if not supported_providers:
+        return False, "supported_providers_empty"
+
+    enabled_providers = _normalize_string_list(data.get("enabled_providers"))
+    if any(provider not in set(supported_providers) for provider in enabled_providers):
+        return False, "enabled_provider_not_supported"
+
+    node_features = data.get("node_features")
+    if not isinstance(node_features, dict):
         return False, "invalid_node_features"
-    features_valid, features_error = validate_node_feature_declarations(node_features)
-    if not features_valid:
-        return False, features_error
+    for key in ("telemetry", "governance_refresh", "lifecycle_events", "provider_failover"):
+        if key not in node_features or not isinstance(node_features.get(key), bool):
+            return False, f"invalid_node_feature_{key}"
+
+    environment_hints = data.get("environment_hints")
     if not isinstance(environment_hints, dict):
         return False, "invalid_environment_hints"
-    hints_valid, hints_error = validate_environment_hints(environment_hints)
-    if not hints_valid:
-        return False, hints_error
+    for key in ("deployment_target", "acceleration", "network_tier", "region"):
+        if not _is_non_empty_string(environment_hints.get(key)):
+            return False, f"invalid_environment_hint_{key}"
 
     metadata = data.get("metadata")
     if not isinstance(metadata, dict):

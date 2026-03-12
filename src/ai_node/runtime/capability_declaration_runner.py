@@ -23,6 +23,7 @@ class CapabilityDeclarationRunner:
         trust_store,
         provider_selection_store,
         node_id: str,
+        node_software_version: str = "0.1.0",
         capability_state_store=None,
         governance_state_store=None,
         phase2_state_store=None,
@@ -39,6 +40,7 @@ class CapabilityDeclarationRunner:
         self._governance_state_store = governance_state_store
         self._phase2_state_store = phase2_state_store
         self._node_id = str(node_id).strip()
+        self._node_software_version = str(node_software_version).strip() or "0.1.0"
         self._capability_client = capability_client or CapabilityDeclarationClient(logger=logger)
         self._governance_client = governance_client or GovernanceSyncClient(logger=logger)
         self._operational_readiness_checker = operational_readiness_checker or OperationalMqttReadinessChecker(
@@ -129,6 +131,8 @@ class CapabilityDeclarationRunner:
         manifest = create_capability_manifest(
             node_id=self._node_id,
             node_name=str(trust_state.get("node_name") or "ai-node").strip(),
+            node_type=str(trust_state.get("node_type") or "ai-node").strip(),
+            node_software_version=self._node_software_version,
             task_families=create_declared_task_family_capabilities(),
             supported_providers=providers.get("supported"),
             enabled_providers=providers.get("enabled"),
@@ -138,14 +142,14 @@ class CapabilityDeclarationRunner:
         self._diag.capability_manifest(
             {
                 "node_id": self._node_id,
-                "task_family_count": len(manifest.get("functional_task_families") or []),
-                "enabled_provider_count": len((manifest.get("providers") or {}).get("enabled") or []),
-                "feature_count": len(manifest.get("node_features") or []),
+                "task_family_count": len(manifest.get("declared_task_families") or []),
+                "enabled_provider_count": len(manifest.get("enabled_providers") or []),
+                "feature_count": len((manifest.get("node_features") or {}).keys()),
             }
         )
         self._last_manifest_summary = {
-            "task_families": [item.get("name") for item in (manifest.get("functional_task_families") or []) if item.get("name")],
-            "enabled_providers": list((manifest.get("providers") or {}).get("enabled") or []),
+            "task_families": list(manifest.get("declared_task_families") or []),
+            "enabled_providers": list(manifest.get("enabled_providers") or []),
             "manifest_version": manifest.get("manifest_version"),
         }
 
