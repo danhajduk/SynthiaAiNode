@@ -22,7 +22,7 @@ class CapabilityManifestSchemaTests(unittest.TestCase):
             node_type="ai-node",
             node_name="main-ai-node",
             node_software_version="0.1.0",
-            task_families=["text_classification"],
+            task_families=["task.classification"],
             supported_providers=["openai"],
             enabled_providers=[],
             node_features=["telemetry_support"],
@@ -53,7 +53,7 @@ class CapabilityManifestSchemaTests(unittest.TestCase):
         is_valid, error = validate_capability_manifest(
             {
                 "manifest_version": "1.0",
-                "declared_task_families": ["text_classification"],
+                "declared_task_families": ["task.classification"],
                 "supported_providers": ["openai"],
                 "enabled_providers": [],
                 "node_features": {
@@ -85,10 +85,10 @@ class CapabilityManifestSchemaTests(unittest.TestCase):
             node_features=["telemetry_support"],
             environment_hints=self._valid_environment_hints(),
         )
-        manifest["declared_task_families"] = ["audio_transcription"]
+        manifest["declared_task_families"] = ["BAD FAMILY"]
         is_valid, error = validate_capability_manifest(manifest)
         self.assertFalse(is_valid)
-        self.assertEqual(error, "unknown_task_family:audio_transcription")
+        self.assertEqual(error, "invalid_task_family:BAD FAMILY")
 
     def test_validate_rejects_metadata_field(self):
         manifest = create_capability_manifest(
@@ -96,7 +96,7 @@ class CapabilityManifestSchemaTests(unittest.TestCase):
             node_type="ai-node",
             node_name="main-ai-node",
             node_software_version="0.1.0",
-            task_families=["text_classification"],
+            task_families=["task.classification"],
             supported_providers=["openai"],
             enabled_providers=["openai"],
             node_features=["telemetry_support"],

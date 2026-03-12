@@ -1,17 +1,16 @@
+import re
 from typing import Optional, Tuple
 
 
-TEXT_CLASSIFICATION = "text_classification"
-EMAIL_CLASSIFICATION = "email_classification"
-IMAGE_CLASSIFICATION = "image_classification"
-IMAGE_GENERATION = "image_generation"
+TASK_CLASSIFICATION = "task.classification"
+TASK_SUMMARIZATION = "task.summarization"
 
 CANONICAL_TASK_FAMILIES = (
-    TEXT_CLASSIFICATION,
-    EMAIL_CLASSIFICATION,
-    IMAGE_CLASSIFICATION,
-    IMAGE_GENERATION,
+    TASK_CLASSIFICATION,
+    TASK_SUMMARIZATION,
 )
+
+_TASK_FAMILY_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._/-]{1,127}$")
 
 
 def _normalize_string_list(value: object) -> list[str]:
@@ -38,7 +37,7 @@ def validate_task_family_capabilities(task_families: object) -> Tuple[bool, Opti
     normalized = _normalize_string_list(task_families)
     if not normalized:
         return True, None
-    unknown = [family for family in normalized if family not in CANONICAL_TASK_FAMILIES]
-    if unknown:
-        return False, f"unknown_task_family:{unknown[0]}"
+    invalid = [family for family in normalized if not _TASK_FAMILY_ID_RE.match(family)]
+    if invalid:
+        return False, f"invalid_task_family:{invalid[0]}"
     return True, None

@@ -12,14 +12,14 @@ class TaskFamilyCapabilityTests(unittest.TestCase):
         declared = create_declared_task_family_capabilities()
         self.assertEqual(declared, list(CANONICAL_TASK_FAMILIES))
 
-    def test_validate_rejects_unknown_task_family(self):
-        is_valid, error = validate_task_family_capabilities(["text_classification", "audio_transcription"])
+    def test_validate_rejects_invalid_task_family(self):
+        is_valid, error = validate_task_family_capabilities(["task.classification", "BAD FAMILY"])
         self.assertFalse(is_valid)
-        self.assertEqual(error, "unknown_task_family:audio_transcription")
+        self.assertEqual(error, "invalid_task_family:BAD FAMILY")
 
-    def test_create_rejects_unknown_task_family(self):
+    def test_create_rejects_invalid_task_family(self):
         with self.assertRaises(ValueError):
-            create_declared_task_family_capabilities(["email_classification", "audio_transcription"])
+            create_declared_task_family_capabilities(["task.summarization", "BAD FAMILY"])
 
 
 if __name__ == "__main__":
