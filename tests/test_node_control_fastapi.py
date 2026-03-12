@@ -31,8 +31,18 @@ class NodeControlFastApiTests(unittest.TestCase):
         async def submit_once(self):
             return {"status": "accepted"}
 
+        async def refresh_governance_once(self):
+            return {"status": "synced"}
+
         def status_payload(self):
-            return {"status": "idle"}
+            return {
+                "status": "idle",
+                "governance_status": {
+                    "state": "fresh",
+                    "active_governance_version": "1.0",
+                    "last_sync_time": "2026-03-11T00:00:00+00:00",
+                },
+            }
 
     def test_status_and_onboarding_endpoints(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -73,6 +83,14 @@ class NodeControlFastApiTests(unittest.TestCase):
             capability_declare_response = client.post("/api/capabilities/declare")
             self.assertEqual(capability_declare_response.status_code, 200)
             self.assertEqual(capability_declare_response.json()["status"], "accepted")
+
+            governance_status_response = client.get("/api/governance/status")
+            self.assertEqual(governance_status_response.status_code, 200)
+            self.assertEqual(governance_status_response.json()["status"]["state"], "fresh")
+
+            governance_refresh_response = client.post("/api/governance/refresh")
+            self.assertEqual(governance_refresh_response.status_code, 200)
+            self.assertEqual(governance_refresh_response.json()["status"], "synced")
 
 
 if __name__ == "__main__":

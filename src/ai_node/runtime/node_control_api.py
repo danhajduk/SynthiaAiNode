@@ -134,6 +134,17 @@ class NodeControlState:
             raise ValueError("capability declaration runner is not configured")
         return await self._capability_runner.submit_once()
 
+    async def refresh_governance(self) -> dict:
+        if self._capability_runner is None or not hasattr(self._capability_runner, "refresh_governance_once"):
+            raise ValueError("governance refresh is not configured")
+        return await self._capability_runner.refresh_governance_once()
+
+    def governance_status_payload(self) -> dict:
+        if self._capability_runner is None or not hasattr(self._capability_runner, "status_payload"):
+            return {"configured": False, "status": None}
+        status = self._capability_runner.status_payload()
+        return {"configured": True, "status": status.get("governance_status")}
+
     def _start_bootstrap_runner_if_available(self) -> None:
         if self._bootstrap_runner is None or self._bootstrap_config is None:
             return
@@ -217,6 +228,8 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
                 "/api/onboarding/restart",
                 "/api/providers/config",
                 "/api/capabilities/declare",
+                "/api/governance/status",
+                "/api/governance/refresh",
                 "/api/health",
             ],
         }
@@ -258,6 +271,17 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     async def post_capability_declare():
         try:
             return await state.submit_capability_declaration()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/governance/status")
+    def get_governance_status():
+        return state.governance_status_payload()
+
+    @app.post("/api/governance/refresh")
+    async def post_governance_refresh():
+        try:
+            return await state.refresh_governance()
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -7,6 +7,7 @@ from ai_node.capabilities.providers import create_provider_capabilities_from_sel
 from ai_node.capabilities.task_families import create_declared_task_family_capabilities
 from ai_node.core_api.capability_client import CapabilityDeclarationClient
 from ai_node.core_api.governance_client import GovernanceSyncClient
+from ai_node.governance.freshness import evaluate_governance_freshness
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 
 
@@ -38,6 +39,9 @@ class CapabilityDeclarationRunner:
         self._last_submitted_at = None
         self._accepted_profile = None
         self._governance_bundle = None
+        self._governance_status = evaluate_governance_freshness(None)
+        self._governance_status["refresh_state"] = "idle"
+        self._governance_status["last_refresh_error"] = None
         self._load_accepted_profile()
         self._load_governance_bundle()
 
@@ -48,6 +52,7 @@ class CapabilityDeclarationRunner:
             "last_submitted_at": self._last_submitted_at,
             "accepted_profile": self._accepted_profile,
             "governance_bundle": self._governance_bundle,
+            "governance_status": self._governance_status,
         }
 
     def _load_accepted_profile(self) -> None:
@@ -66,6 +71,13 @@ class CapabilityDeclarationRunner:
         if not isinstance(payload, dict):
             return
         self._governance_bundle = payload
+        self._refresh_governance_status(refresh_state="loaded", last_refresh_error=None)
+
+    def _refresh_governance_status(self, *, refresh_state: str, last_refresh_error: str | None) -> None:
+        status = evaluate_governance_freshness(self._governance_bundle)
+        status["refresh_state"] = refresh_state
+        status["last_refresh_error"] = last_refresh_error
+        self._governance_status = status
 
     async def submit_once(self) -> dict:
         state = self._lifecycle.get_state()
@@ -167,6 +179,7 @@ class CapabilityDeclarationRunner:
             if self._governance_state_store is not None and hasattr(self._governance_state_store, "save"):
                 self._governance_state_store.save(governance_payload)
             self._governance_bundle = governance_payload
+            self._refresh_governance_status(refresh_state="synced", last_refresh_error=None)
             self._lifecycle.transition_to(
                 NodeLifecycleState.CAPABILITY_DECLARATION_ACCEPTED,
                 {"source": "capability_declaration_runner"},
@@ -199,6 +212,43 @@ class CapabilityDeclarationRunner:
             "retryable": result.retryable,
             "error": result.error,
             "result": result.payload,
+        }
+
+    async def refresh_governance_once(self) -> dict:
+        trust_state = self._trust_store.load() if self._trust_store is not None else None
+        if not isinstance(trust_state, dict):
+            raise ValueError("missing valid trust state for governance refresh")
+
+        governance_result = await self._governance_client.fetch_baseline_governance(
+            core_api_endpoint=str(trust_state.get("core_api_endpoint") or "").strip(),
+            trust_token=str(trust_state.get("node_trust_token") or "").strip(),
+            node_id=self._node_id,
+        )
+        if governance_result.status == "synced":
+            governance_payload = _build_governance_payload(
+                governance_payload=governance_result.payload,
+                trust_state=trust_state,
+            )
+            if self._governance_state_store is not None and hasattr(self._governance_state_store, "save"):
+                self._governance_state_store.save(governance_payload)
+            self._governance_bundle = governance_payload
+            self._refresh_governance_status(refresh_state="synced", last_refresh_error=None)
+            return {
+                "status": "synced",
+                "governance_bundle": governance_payload,
+                "governance_status": self._governance_status,
+            }
+
+        self._refresh_governance_status(
+            refresh_state="core_temporarily_unavailable" if governance_result.retryable else "sync_rejected",
+            last_refresh_error=governance_result.error,
+        )
+        return {
+            "status": governance_result.status,
+            "retryable": governance_result.retryable,
+            "error": governance_result.error,
+            "result": governance_result.payload,
+            "governance_status": self._governance_status,
         }
 
 

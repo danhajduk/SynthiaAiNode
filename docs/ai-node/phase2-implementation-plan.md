@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 2 Implementation Plan and Module Map
 
 Status: Active
-Implementation status: In progress (Tasks 059-070 implemented)
+Implementation status: In progress (Tasks 059-071 implemented)
 Last updated: 2026-03-11
 
 ## Scope
@@ -78,6 +78,10 @@ Out of scope in Phase 2:
   - baseline governance sync client added for trusted Core governance fetch after capability acceptance
   - governance bundle is persisted locally in versioned state storage with deterministic fields
   - node transitions to `operational` only after governance sync succeeds and governance state is stored
+- Task 071:
+  - governance freshness evaluation added with explicit `fresh` / `stale` / `unknown` state modeling
+  - runtime now tracks active governance version, issued timestamp, last sync time, and refresh health
+  - governance status and manual refresh APIs are exposed for telemetry and operational diagnostics
 
 ## Phase 2 Module Map (Python)
 

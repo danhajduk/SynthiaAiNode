@@ -43,24 +43,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 071: Phase 2B — Implement governance versioning and freshness tracking
-  - Track:
-    - active governance version
-    - issued timestamp
-    - last sync time
-    - freshness/expiry state
-  - Define node behavior for:
-    - fresh governance
-    - stale governance
-    - temporarily unavailable Core during refresh
-  - Expose internal status for later telemetry.
-
-  * Comments, descriptions, rules:
-    - Governance freshness must be explicit.
-    - Node should not silently run forever on unknown stale state.
-    - Do not overcomplicate with full policy engine logic yet.
-
-
 [STOP HERE]
 
 

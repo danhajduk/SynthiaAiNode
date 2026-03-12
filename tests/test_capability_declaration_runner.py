@@ -103,12 +103,25 @@ class _FakeCapabilityStateStore:
         return self.existing
 
 
+class _FakeGovernanceStateStore:
+    def __init__(self, existing=None):
+        self.saved = None
+        self.existing = existing
+
+    def save(self, payload):
+        self.saved = payload
+
+    def load(self):
+        return self.existing
+
+
 class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
     async def test_accepted_submission_transitions_to_operational(self):
         lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
         lifecycle.transition_to(NodeLifecycleState.TRUSTED)
         lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
         state_store = _FakeCapabilityStateStore()
+        governance_store = _FakeGovernanceStateStore()
         runner = CapabilityDeclarationRunner(
             lifecycle=lifecycle,
             logger=logging.getLogger("capability-runner-test"),
@@ -116,6 +129,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             provider_selection_store=_FakeProviderSelectionStore(),
             node_id="node-001",
             capability_state_store=state_store,
+            governance_state_store=governance_store,
             capability_client=_FakeClientAccepted(),
             governance_client=_FakeGovernanceClientSynced(),
         )
@@ -126,6 +140,8 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(state_store.saved)
         self.assertEqual(state_store.saved["accepted_profile_id"], "cap-1")
         self.assertIsNotNone(result["governance_bundle"])
+        self.assertEqual(governance_store.saved["policy_version"], "1.0")
+        self.assertEqual(runner.status_payload()["governance_status"]["state"], "fresh")
 
     async def test_retryable_submission_transitions_to_retry_pending(self):
         lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
@@ -192,6 +208,37 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["status"], "retryable_failure")
         self.assertEqual(lifecycle.get_state(), NodeLifecycleState.CAPABILITY_DECLARATION_FAILED_RETRY_PENDING)
         self.assertEqual(runner.status_payload()["status"], "retry_pending")
+
+    async def test_governance_refresh_returns_retryable_with_existing_bundle(self):
+        lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
+        lifecycle.transition_to(NodeLifecycleState.TRUSTED)
+        lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
+        governance_store = _FakeGovernanceStateStore(
+            existing={
+                "schema_version": "1.0",
+                "policy_version": "1.0",
+                "issued_timestamp": "2026-03-11T00:00:00+00:00",
+                "synced_at": "2026-03-11T00:05:00+00:00",
+                "refresh_expectations": {"recommended_interval_seconds": 900, "max_stale_seconds": 3600},
+                "generic_node_class_rules": {},
+                "feature_gating_defaults": {},
+                "telemetry_expectations": {},
+                "raw_response": {},
+            }
+        )
+        runner = CapabilityDeclarationRunner(
+            lifecycle=lifecycle,
+            logger=logging.getLogger("capability-runner-test"),
+            trust_store=_FakeTrustStore(),
+            provider_selection_store=_FakeProviderSelectionStore(),
+            node_id="node-001",
+            governance_state_store=governance_store,
+            capability_client=_FakeClientAccepted(),
+            governance_client=_FakeGovernanceClientRetry(),
+        )
+        result = await runner.refresh_governance_once()
+        self.assertEqual(result["status"], "retryable_failure")
+        self.assertEqual(result["governance_status"]["refresh_state"], "core_temporarily_unavailable")
 
 
 if __name__ == "__main__":
