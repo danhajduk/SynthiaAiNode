@@ -46,21 +46,6 @@ Do not edit above this line:
 [STOP HERE]
 
 
-[TODO] Task 075: Phase 2C — Implement secure storage updates for Phase 2 state
-  - Extend local persisted state to include Phase 2 metadata such as:
-    - enabled provider/service selection
-    - accepted capability declaration metadata
-    - active governance version
-    - governance sync timestamp
-    - capability declaration timestamp
-  - Add validation and migration-safe load behavior.
-
-  * Comments, descriptions, rules:
-    - Keep persisted state organized and versionable.
-    - Do not overwrite trust-state semantics from Phase 1.
-    - Maintain separation between identity/trust data and capability/governance data where practical.
-
-
 [STOP HERE]
 
 

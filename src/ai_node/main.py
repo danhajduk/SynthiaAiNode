@@ -19,6 +19,7 @@ from ai_node.runtime.node_control_api import NodeControlState, create_node_contr
 from ai_node.runtime.onboarding_runtime import OnboardingRuntime
 from ai_node.persistence.capability_state_store import CapabilityStateStore
 from ai_node.persistence.governance_state_store import GovernanceStateStore
+from ai_node.persistence.phase2_state_store import Phase2StateStore
 from ai_node.trust.trust_store import TrustStateStore
 
 
@@ -113,6 +114,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to persisted governance bundle state",
     )
     parser.add_argument(
+        "--phase2-state-path",
+        default=os.environ.get("SYNTHIA_PHASE2_STATE_PATH", ".run/phase2_state.json"),
+        help="Path to persisted combined phase-2 activation state",
+    )
+    parser.add_argument(
         "--finalize-poll-interval-seconds",
         type=float,
         default=float(os.environ.get("SYNTHIA_FINALIZE_POLL_INTERVAL_SECONDS", "2")),
@@ -155,6 +161,7 @@ def run(
     provider_selection_config_path: str = ".run/provider_selection_config.json",
     capability_state_path: str = ".run/capability_state.json",
     governance_state_path: str = ".run/governance_state.json",
+    phase2_state_path: str = ".run/phase2_state.json",
     finalize_poll_interval_seconds: float = 2.0,
 ) -> int:
     configure_logging(log_file)
@@ -173,6 +180,7 @@ def run(
     )
     capability_state_store = CapabilityStateStore(path=capability_state_path, logger=LOGGER)
     governance_state_store = GovernanceStateStore(path=governance_state_path, logger=LOGGER)
+    phase2_state_store = Phase2StateStore(path=phase2_state_path, logger=LOGGER)
     LOGGER.info("[node-identity] %s", {"node_id": node_identity["node_id"], "path": node_identity_path})
     if isinstance(trust_state, dict):
         trust_node_id = str(trust_state.get("node_id") or "").strip()
@@ -251,6 +259,7 @@ def run(
         node_id=node_identity["node_id"],
         capability_state_store=capability_state_store,
         governance_state_store=governance_state_store,
+        phase2_state_store=phase2_state_store,
     )
     control_state = NodeControlState(
         lifecycle=lifecycle,
@@ -303,6 +312,7 @@ def main() -> int:
         provider_selection_config_path=args.provider_selection_config_path,
         capability_state_path=args.capability_state_path,
         governance_state_path=args.governance_state_path,
+        phase2_state_path=args.phase2_state_path,
         finalize_poll_interval_seconds=args.finalize_poll_interval_seconds,
     )
 

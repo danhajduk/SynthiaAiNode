@@ -311,3 +311,10 @@ Step objective: Add deterministic degraded transitions and recovery for capabili
 Chosen fix: Temporary failures now transition into degraded state, and a runner recovery API restores either capability setup pending or operational based on accepted/governance/readiness conditions.
 What changed: Updated src/ai_node/runtime/capability_declaration_runner.py and src/ai_node/runtime/node_control_api.py; expanded tests/test_capability_declaration_runner.py and tests/test_node_control_fastapi.py.
 Verification: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_capability_declaration_runner.py tests/test_node_control_fastapi.py tests/test_trusted_status_telemetry.py tests/test_operational_mqtt_readiness.py tests/test_governance_freshness.py tests/test_governance_client.py tests/test_governance_state_store.py tests/test_main_entrypoint.py tests/test_connectivity_manager.py` passes (32 tests).
+
+###########
+Task #075 (Phase 2)
+Step objective: Persist consolidated Phase 2 metadata with validation and migration-safe loading.
+Chosen fix: Added a versioned Phase 2 state store and persisted provider selection + accepted capability + governance metadata/timestamps from runtime transitions.
+What changed: Added src/ai_node/persistence/phase2_state_store.py; updated src/ai_node/persistence/__init__.py, src/ai_node/runtime/capability_declaration_runner.py, and src/ai_node/main.py; added tests/test_phase2_state_store.py and expanded tests/test_capability_declaration_runner.py.
+Verification: `PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_phase2_state_store.py tests/test_capability_declaration_runner.py tests/test_main_entrypoint.py tests/test_node_control_fastapi.py tests/test_governance_state_store.py tests/test_capability_state_store.py tests/test_operational_mqtt_readiness.py tests/test_trusted_status_telemetry.py` passes (31 tests).

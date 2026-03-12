@@ -24,6 +24,7 @@ class CapabilityDeclarationRunner:
         node_id: str,
         capability_state_store=None,
         governance_state_store=None,
+        phase2_state_store=None,
         capability_client=None,
         governance_client=None,
         operational_readiness_checker=None,
@@ -35,6 +36,7 @@ class CapabilityDeclarationRunner:
         self._provider_selection_store = provider_selection_store
         self._capability_state_store = capability_state_store
         self._governance_state_store = governance_state_store
+        self._phase2_state_store = phase2_state_store
         self._node_id = str(node_id).strip()
         self._capability_client = capability_client or CapabilityDeclarationClient(logger=logger)
         self._governance_client = governance_client or GovernanceSyncClient(logger=logger)
@@ -200,6 +202,7 @@ class CapabilityDeclarationRunner:
                 self._governance_state_store.save(governance_payload)
             self._governance_bundle = governance_payload
             self._refresh_governance_status(refresh_state="synced", last_refresh_error=None)
+            self._persist_phase2_state()
 
             readiness_result = await self._operational_readiness_checker.check_once(trust_state=trust_state)
             if not readiness_result.get("ready"):
@@ -245,6 +248,7 @@ class CapabilityDeclarationRunner:
             )
             self._status = "accepted"
             self._last_error = None
+            self._persist_phase2_state()
             return {
                 "status": "accepted",
                 "result": result.payload,
@@ -293,6 +297,7 @@ class CapabilityDeclarationRunner:
                 self._governance_state_store.save(governance_payload)
             self._governance_bundle = governance_payload
             self._refresh_governance_status(refresh_state="synced", last_refresh_error=None)
+            self._persist_phase2_state()
             return {
                 "status": "synced",
                 "governance_bundle": governance_payload,
@@ -345,7 +350,32 @@ class CapabilityDeclarationRunner:
             self._last_error = None
         else:
             self._status = "idle"
+        self._persist_phase2_state()
         return {"status": "recovered", "target_state": target_state.value, "capability_status": self._status}
+
+    def _persist_phase2_state(self) -> None:
+        if self._phase2_state_store is None or not hasattr(self._phase2_state_store, "save"):
+            return
+        provider_selection = (
+            self._provider_selection_store.load_or_create(openai_enabled=False)
+            if self._provider_selection_store is not None and hasattr(self._provider_selection_store, "load_or_create")
+            else {}
+        )
+        payload = {
+            "schema_version": "1.0",
+            "enabled_provider_selection": provider_selection if isinstance(provider_selection, dict) else {},
+            "accepted_capability": self._accepted_profile if isinstance(self._accepted_profile, dict) else None,
+            "active_governance": self._governance_bundle if isinstance(self._governance_bundle, dict) else None,
+            "timestamps": {
+                "capability_declaration_timestamp": (
+                    self._accepted_profile.get("acceptance_timestamp") if isinstance(self._accepted_profile, dict) else None
+                ),
+                "governance_sync_timestamp": (
+                    self._governance_bundle.get("synced_at") if isinstance(self._governance_bundle, dict) else None
+                ),
+            },
+        }
+        self._phase2_state_store.save(payload)
 
     async def _emit_status_telemetry(self, *, trust_state: dict, lifecycle_state: str, overall_status: str) -> dict | None:
         if self._telemetry_publisher is None or not hasattr(self._telemetry_publisher, "publish_status"):

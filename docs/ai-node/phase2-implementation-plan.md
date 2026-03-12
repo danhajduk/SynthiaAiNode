@@ -1,7 +1,7 @@
 # Synthia AI Node - Phase 2 Implementation Plan and Module Map
 
 Status: Active
-Implementation status: In progress (Tasks 059-074 implemented)
+Implementation status: In progress (Tasks 059-075 implemented)
 Last updated: 2026-03-11
 
 ## Scope
@@ -94,6 +94,10 @@ Out of scope in Phase 2:
   - temporary capability/governance/operational-telemetry failures now transition to `degraded`
   - deterministic recovery path added to restore either `capability_setup_pending` or `operational`
   - trust-state is preserved during degraded handling; node does not reboot into bootstrap path
+- Task 075:
+  - added combined versioned Phase 2 state persistence for provider selection, accepted capability metadata, governance metadata, and timestamps
+  - consolidated state loader supports migration-safe conversion from legacy field layout
+  - trust-state semantics remain separate while phase-2 activation metadata is persisted for restart/debug continuity
 
 ## Phase 2 Module Map (Python)
 
@@ -118,6 +122,7 @@ src/ai_node/
   persistence/
     capability_state_store.py      # accepted capability profile/version persistence
     governance_state_store.py      # baseline governance bundle/version persistence
+    phase2_state_store.py          # consolidated phase-2 activation metadata persistence
 ```
 
 ## Initial Contracts

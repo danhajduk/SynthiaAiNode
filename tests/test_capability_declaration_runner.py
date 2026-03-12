@@ -156,6 +156,14 @@ class _FakeGovernanceStateStore:
         return self.existing
 
 
+class _FakePhase2StateStore:
+    def __init__(self):
+        self.saved = None
+
+    def save(self, payload):
+        self.saved = payload
+
+
 class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
     async def test_accepted_submission_transitions_to_operational(self):
         lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
@@ -163,6 +171,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
         state_store = _FakeCapabilityStateStore()
         governance_store = _FakeGovernanceStateStore()
+        phase2_store = _FakePhase2StateStore()
         telemetry = _FakeTelemetryPublisher()
         runner = CapabilityDeclarationRunner(
             lifecycle=lifecycle,
@@ -172,6 +181,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             node_id="node-001",
             capability_state_store=state_store,
             governance_state_store=governance_store,
+            phase2_state_store=phase2_store,
             capability_client=_FakeClientAccepted(),
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
@@ -187,6 +197,8 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(governance_store.saved["policy_version"], "1.0")
         self.assertEqual(runner.status_payload()["governance_status"]["state"], "fresh")
         self.assertIsNotNone(telemetry.last)
+        self.assertIsNotNone(phase2_store.saved)
+        self.assertIn("enabled_provider_selection", phase2_store.saved)
 
     async def test_retryable_submission_transitions_to_retry_pending(self):
         lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
@@ -202,6 +214,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
             telemetry_publisher=_FakeTelemetryPublisher(),
+            phase2_state_store=_FakePhase2StateStore(),
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
@@ -234,6 +247,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
             telemetry_publisher=_FakeTelemetryPublisher(),
+            phase2_state_store=_FakePhase2StateStore(),
         )
         status = runner.status_payload()
         self.assertEqual(status["status"], "accepted")
@@ -254,6 +268,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             governance_client=_FakeGovernanceClientRetry(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
             telemetry_publisher=_FakeTelemetryPublisher(),
+            phase2_state_store=_FakePhase2StateStore(),
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
@@ -307,6 +322,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessNotReady(),
             telemetry_publisher=_FakeTelemetryPublisher(),
+            phase2_state_store=_FakePhase2StateStore(),
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "retryable_failure")
@@ -332,6 +348,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessNotReady(),
             telemetry_publisher=_FakeTelemetryPublisher(),
+            phase2_state_store=_FakePhase2StateStore(),
         )
         result = runner.recover_from_degraded()
         self.assertEqual(result["target_state"], NodeLifecycleState.CAPABILITY_SETUP_PENDING.value)
@@ -353,6 +370,7 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
             governance_client=_FakeGovernanceClientSynced(),
             operational_readiness_checker=_FakeOperationalReadinessReady(),
             telemetry_publisher=_FakeTelemetryPublisherFailure(),
+            phase2_state_store=_FakePhase2StateStore(),
         )
         result = await runner.submit_once()
         self.assertEqual(result["status"], "accepted")
