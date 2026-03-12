@@ -248,6 +248,12 @@ h2 {
   background: #c7a800;
 }
 
+.diagnostics-card details summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
 @media (max-width: 900px) {
   .page {
     padding: 16px;

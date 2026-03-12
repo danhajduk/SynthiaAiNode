@@ -6,6 +6,13 @@ import { CardHeader, HealthIndicator, StatusBadge } from "./components/uiPrimiti
 import "./app.css";
 
 const REFRESH_INTERVAL_MS = 7000;
+const UI_VERSION = "0.1.0";
+const DIAGNOSTIC_ENDPOINTS = [
+  "/api/node/status",
+  "/api/governance/status",
+  "/api/providers/config",
+  "/api/services/status",
+];
 
 function ThemeToggle() {
   const [theme, setLocalTheme] = useState(getTheme());
@@ -36,6 +43,7 @@ export default function App() {
   const [openaiEnabled, setOpenaiEnabled] = useState(false);
   const [savingProvider, setSavingProvider] = useState(false);
   const [restartingServiceTarget, setRestartingServiceTarget] = useState("");
+  const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
   const [uiState, setUiState] = useState(() =>
     buildDashboardUiState({
       nodeStatus: null,
@@ -211,6 +219,23 @@ export default function App() {
       setError(message);
     } finally {
       setRestartingServiceTarget("");
+    }
+  }
+
+  async function onCopyDiagnostics() {
+    const payload = {
+      lifecycle_state: uiState.lifecycle.current,
+      api_base: getApiBase(),
+      api_endpoints: DIAGNOSTIC_ENDPOINTS,
+      last_backend_update: uiState.meta.lastUpdatedAt,
+      ui_version: UI_VERSION,
+    };
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      setCopiedDiagnostics(true);
+      window.setTimeout(() => setCopiedDiagnostics(false), 1200);
+    } catch (_err) {
+      setError("Failed to copy diagnostics");
     }
   }
 
@@ -421,6 +446,27 @@ export default function App() {
                 {restartingServiceTarget === "node" ? "Restarting..." : "Restart Node"}
               </button>
             </div>
+          </article>
+          <article className="card diagnostics-card">
+            <details>
+              <summary>Diagnostics</summary>
+              <p className="muted tiny">Safe debug data for support and troubleshooting</p>
+              <div className="state-grid">
+                <span>Lifecycle</span>
+                <code>{uiState.lifecycle.current}</code>
+                <span>API Base</span>
+                <code>{getApiBase()}</code>
+                <span>Endpoints</span>
+                <code>{DIAGNOSTIC_ENDPOINTS.join(", ")}</code>
+                <span>Last Update</span>
+                <code>{uiState.meta.lastUpdatedAt || "never"}</code>
+                <span>UI Version</span>
+                <code>{UI_VERSION}</code>
+              </div>
+              <button className="btn" onClick={onCopyDiagnostics}>
+                {copiedDiagnostics ? "Diagnostics Copied" : "Copy Diagnostics"}
+              </button>
+            </details>
           </article>
         </section>
       )}
