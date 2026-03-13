@@ -104,6 +104,11 @@ curl -X POST http://127.0.0.1:9002/api/providers/openai/pricing/manual \
   -d '{"model_id":"gpt-5.4-pro","input_price_per_1m":3.0,"output_price_per_1m":15.0}'
 ```
 
+UI behavior:
+
+- OpenAI model selections in the credentials popup now save automatically when you select or unselect a model.
+- Manual pricing can be saved for the primary selected model or applied across all selected models from the popup.
+
 Task capability selection endpoints:
 
 ```bash

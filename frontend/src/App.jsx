@@ -87,6 +87,7 @@ export default function App() {
   const [savingCredentials, setSavingCredentials] = useState(false);
   const [savingModelPreference, setSavingModelPreference] = useState(false);
   const [savingManualPricing, setSavingManualPricing] = useState(false);
+  const [savingBulkManualPricing, setSavingBulkManualPricing] = useState(false);
   const [refreshingLatestModels, setRefreshingLatestModels] = useState(false);
   const [pricingRefreshState, setPricingRefreshState] = useState("");
   const [uiState, setUiState] = useState(() =>
@@ -334,13 +335,38 @@ export default function App() {
     });
   }
 
-  function onToggleOpenAiModel(modelId) {
-    setSelectedOpenaiModelIds((current) => {
-      if (current.includes(modelId)) {
-        return current.filter((item) => item !== modelId);
+  async function persistOpenAiPreferences(nextSelectedModelIds, { refreshModels = false } = {}) {
+    setSavingModelPreference(true);
+    setError("");
+    try {
+      const payload = await apiPost("/api/providers/openai/preferences", {
+        default_model_id: nextSelectedModelIds[0] || null,
+        selected_model_ids: nextSelectedModelIds,
+      });
+      setProviderCredentials(payload);
+      if (refreshModels) {
+        await refreshOpenAiModels();
       }
-      return [...current, modelId];
-    });
+      return payload;
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+      throw err;
+    } finally {
+      setSavingModelPreference(false);
+    }
+  }
+
+  async function onToggleOpenAiModel(modelId) {
+    const nextSelectedModelIds = selectedOpenaiModelIds.includes(modelId)
+      ? selectedOpenaiModelIds.filter((item) => item !== modelId)
+      : [...selectedOpenaiModelIds, modelId];
+    setSelectedOpenaiModelIds(nextSelectedModelIds);
+    try {
+      await persistOpenAiPreferences(nextSelectedModelIds);
+    } catch (_err) {
+      setSelectedOpenaiModelIds(selectedOpenaiModelIds);
+    }
   }
 
   function renderTaskCapabilityToggles(prefix) {
@@ -460,21 +486,9 @@ export default function App() {
     if (!selectedOpenaiModelIds.length || savingModelPreference) {
       return;
     }
-    setSavingModelPreference(true);
-    setError("");
     try {
-      const payload = await apiPost("/api/providers/openai/preferences", {
-        default_model_id: selectedOpenaiModelIds[0],
-        selected_model_ids: selectedOpenaiModelIds,
-      });
-      setProviderCredentials(payload);
-      await refreshOpenAiModels();
-    } catch (err) {
-      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
-      setError(message);
-    } finally {
-      setSavingModelPreference(false);
-    }
+      await persistOpenAiPreferences(selectedOpenaiModelIds, { refreshModels: true });
+    } catch (_err) {}
   }
 
   async function onSaveManualPricing(event) {
@@ -491,16 +505,40 @@ export default function App() {
         input_price_per_1m: manualPricingInput === "" ? null : Number(manualPricingInput),
         output_price_per_1m: manualPricingOutput === "" ? null : Number(manualPricingOutput),
       });
-      await apiPost("/api/providers/openai/preferences", {
-        default_model_id: selectedOpenaiModelIds[0],
-        selected_model_ids: selectedOpenaiModelIds,
-      });
+      await persistOpenAiPreferences(selectedOpenaiModelIds);
       await refreshOpenAiModels();
     } catch (err) {
       const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
       setError(message);
     } finally {
       setSavingManualPricing(false);
+    }
+  }
+
+  async function onSaveManualPricingForSelected(event) {
+    event.preventDefault();
+    if (!selectedOpenaiModelIds.length || savingBulkManualPricing) {
+      return;
+    }
+    setSavingBulkManualPricing(true);
+    setError("");
+    try {
+      for (const modelId of selectedOpenaiModelIds) {
+        const model = latestOpenaiModels.find((item) => item.model_id === modelId);
+        await apiPost("/api/providers/openai/pricing/manual", {
+          model_id: modelId,
+          display_name: model?.display_name || modelId,
+          input_price_per_1m: manualPricingInput === "" ? null : Number(manualPricingInput),
+          output_price_per_1m: manualPricingOutput === "" ? null : Number(manualPricingOutput),
+        });
+      }
+      await persistOpenAiPreferences(selectedOpenaiModelIds);
+      await refreshOpenAiModels();
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setSavingBulkManualPricing(false);
     }
   }
 
@@ -693,14 +731,9 @@ export default function App() {
             <div className="modal-capability-data">
               <div className="model-section-header">
                 <h3>Canonical OpenAI Models</h3>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={onSaveOpenAiPreference}
-                  disabled={!selectedOpenaiModelIds.length || savingModelPreference}
-                >
-                  {savingModelPreference ? "Saving..." : "Save Selected Models"}
-                </button>
+                <span className="muted tiny">
+                  {savingModelPreference ? "Saving selections..." : "Selections save automatically"}
+                </span>
               </div>
               {latestOpenaiModels.length ? (
                 <div className="model-list mini-card-grid">
@@ -748,6 +781,9 @@ export default function App() {
                       Primary: <code>{selectedOpenaiModel.model_id}</code>
                     </span>
                   </div>
+                  <p className="muted tiny">
+                    Manual pricing uses the first selected model as primary. You can also apply the same values to all selected models.
+                  </p>
                   <div className="state-grid">
                     <span>Current Input</span>
                     <code>{formatPrice(selectedOpenaiModel.pricing?.input_per_1m_tokens)}</code>
@@ -779,6 +815,14 @@ export default function App() {
                   <div className="row">
                     <button className="btn btn-primary" type="submit" disabled={savingManualPricing}>
                       {savingManualPricing ? "Saving..." : "Save Manual Price"}
+                    </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={onSaveManualPricingForSelected}
+                      disabled={savingBulkManualPricing || !selectedOpenaiModelIds.length}
+                    >
+                      {savingBulkManualPricing ? "Updating All..." : "Apply To All Selected Models"}
                     </button>
                     <button
                       className="btn"
