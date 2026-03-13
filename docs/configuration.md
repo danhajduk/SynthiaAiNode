@@ -1,0 +1,53 @@
+# Configuration
+
+Only configuration verified from this repository is documented here.
+
+## Environment Variables
+
+Backend runtime:
+
+- `SYNTHIA_API_HOST` default `127.0.0.1`
+- `SYNTHIA_API_PORT` default `9002`
+- `SYNTHIA_BOOTSTRAP_CONFIG_PATH` default `.run/bootstrap_config.json`
+- `SYNTHIA_BACKEND_LOG_PATH` default `logs/backend.log`
+- `SYNTHIA_BOOTSTRAP_CONNECT_TIMEOUT_SECONDS` default `30`
+- `SYNTHIA_NODE_SOFTWARE_VERSION` default `0.1.0`
+- `SYNTHIA_NODE_PROTOCOL_VERSION` default `1.0`
+- `SYNTHIA_NODE_HOSTNAME` default local hostname
+- `SYNTHIA_TRUST_STATE_PATH` default `.run/trust_state.json`
+- `SYNTHIA_NODE_IDENTITY_PATH` default `.run/node_identity.json`
+- `SYNTHIA_PROVIDER_SELECTION_CONFIG_PATH` default `.run/provider_selection_config.json`
+- `SYNTHIA_TASK_CAPABILITY_SELECTION_CONFIG_PATH` default `.run/task_capability_selection_config.json`
+- `SYNTHIA_CAPABILITY_STATE_PATH` default `.run/capability_state.json`
+- `SYNTHIA_GOVERNANCE_STATE_PATH` default `.run/governance_state.json`
+- `SYNTHIA_PHASE2_STATE_PATH` default `.run/phase2_state.json`
+- `SYNTHIA_PROVIDER_CAPABILITY_REPORT_PATH` default `.run/provider_capability_report.json`
+- `SYNTHIA_PROMPT_SERVICE_STATE_PATH` default `.run/prompt_service_state.json`
+- `SYNTHIA_PROVIDER_CAPABILITY_REFRESH_INTERVAL_SECONDS` default `14400`
+- `SYNTHIA_FINALIZE_POLL_INTERVAL_SECONDS` default `2`
+- `SYNTHIA_PROVIDER_REGISTRY_PATH` default `data/provider_registry.json`
+- `SYNTHIA_PROVIDER_METRICS_PATH` default `data/provider_metrics.json`
+
+Provider-specific:
+
+- `OPENAI_API_KEY` required for live OpenAI discovery and use
+- `SYNTHIA_OPENAI_BASE_URL` optional OpenAI-compatible override
+
+## Config Files
+
+- `scripts/stack.env`: local service commands for `bootstrap.sh`
+- `.run/*.json`: persisted node runtime state
+- `data/provider_registry.json`: provider capability snapshot
+- `data/provider_metrics.json`: provider metrics snapshot
+
+## Secrets Handling
+
+- Trust tokens and operational MQTT tokens are stored in trust state and must not be logged or committed.
+- `OPENAI_API_KEY` should be supplied through environment or local service configuration, not committed files.
+- `.run/`, `.venv/`, `logs/`, and local Core doc symlinks are ignored in git.
+
+## Defaults And Required Values
+
+- Provider selection defaults to OpenAI as a supported cloud provider and starts disabled until configured.
+- Task capability selection defaults to the canonical task family list when created locally.
+- Valid trust state requires node identity, Core pairing metadata, trust token, and operational MQTT credentials.

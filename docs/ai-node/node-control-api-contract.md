@@ -13,10 +13,12 @@ This is the canonical source-of-truth contract for:
 - provider and task-capability configuration
 - capability declaration trigger
 - governance/provider refresh operations
+- periodic provider intelligence refresh job lifecycle
 - degraded recovery trigger
 - service status/restart controls
 - prompt/service registration and probation controls
 - execution authorization gate scaffolding
+- provider runtime visibility debug endpoints
 
 ## API Root
 
@@ -133,6 +135,16 @@ This is the canonical source-of-truth contract for:
 - Error:
   - `400` when runner is unavailable.
 
+### Background refresh behavior
+
+- Runtime starts a periodic provider refresh loop during API startup.
+- Runtime stops the refresh loop during API shutdown.
+- Loop behavior:
+  - waits configured interval
+  - executes provider capability refresh with `force_refresh=false`
+  - logs status/changed/core-submission summary
+  - logs warning on loop errors
+
 ## Degraded Recovery
 
 - `POST /api/node/recover`
@@ -218,3 +230,26 @@ Current enforcement model:
 - deny while prompt is in probation
 - deny when requested task family mismatches registered task family
 - allow only for registered prompt IDs with matching task family and non-probation status
+
+## Provider Debug Endpoints
+
+### Provider snapshot
+
+- `GET /debug/providers`
+- Response:
+  - `configured: boolean`
+  - `providers: list`
+
+### Provider model snapshot
+
+- `GET /debug/providers/models`
+- Response:
+  - `configured: boolean`
+  - `providers: list` with `provider_id` and `models[]`
+
+### Provider metrics snapshot
+
+- `GET /debug/providers/metrics`
+- Response:
+  - `configured: boolean`
+  - `providers: object` keyed by provider id with metrics totals/model metrics

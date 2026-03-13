@@ -136,3 +136,4 @@ Task 127: Add debug endpoints for provider visibility - Completed on 03/12/2026 
 Task 128: Add structured logging for provider execution - Completed on 03/12/2026 15:45
 Task 129: Create Phase 4 unit tests - Completed on 03/12/2026 15:45
 Task 130: Create mock provider for local testing - Completed on 03/12/2026 15:45
+Task 131-148: Rework node documentation structure, ownership boundaries, Core references, setup/runtime docs, archive policy, and local Core docs symlink support - Completed on 03/13/2026 00:00

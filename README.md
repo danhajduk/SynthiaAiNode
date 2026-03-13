@@ -10,7 +10,8 @@ pip install -r requirements.txt
 
 ## Current run mode
 
-The project currently provides Phase 1 onboarding modules and tests.
+The project currently provides implemented onboarding, trust/capability/governance activation,
+and provider-intelligence runtime control paths (including local provider visibility debug APIs).
 Backend entrypoint is available as `python -m ai_node.main`.
 
 ## Backend run
@@ -63,6 +64,14 @@ curl -X POST http://127.0.0.1:9002/api/capabilities/providers/refresh \
   -d '{"force_refresh": true}'
 ```
 
+Provider debug endpoints:
+
+```bash
+curl http://127.0.0.1:9002/debug/providers
+curl http://127.0.0.1:9002/debug/providers/models
+curl http://127.0.0.1:9002/debug/providers/metrics
+```
+
 Task capability selection endpoints:
 
 ```bash
@@ -93,6 +102,15 @@ npm run dev -- --host 0.0.0.0 --port 8081
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+## Documentation
+
+This repository keeps node-specific documentation. Platform-wide contracts and shared architecture are owned by Synthia Core.
+
+- `docs/index.md` for the primary docs entry point
+- `docs/overview.md` for node scope and ownership boundaries
+- `docs/setup.md` for install and startup steps
+- `docs/core-references.md` for canonical Core documentation links
 
 ## Service bootstrap (run on boot)
 
