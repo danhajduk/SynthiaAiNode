@@ -9,6 +9,7 @@ from ai_node.providers.openai_catalog import (
     OpenAIPricingPageParser,
     OpenAIPricingSnapshot,
     get_openai_model_pricing,
+    is_openai_date_versioned_model_id,
     normalize_openai_display_name,
     resolve_openai_base_model_id,
     validate_openai_pricing_entries,
@@ -31,6 +32,8 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(normalize_openai_display_name("GPT-5 Mini"), "gpt-5-mini")
         self.assertEqual(resolve_openai_base_model_id("gpt-5-mini-2026-03-01"), "gpt-5-mini")
         self.assertEqual(resolve_openai_base_model_id("gpt-5-chat-latest"), "gpt-5-chat")
+        self.assertTrue(is_openai_date_versioned_model_id("gpt-5-mini-2026-03-01"))
+        self.assertFalse(is_openai_date_versioned_model_id("gpt-5.4-pro"))
 
     def test_parser_extracts_prices_from_simple_html(self):
         parser = OpenAIPricingPageParser()
@@ -138,6 +141,25 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
             entries=[],
         )
         self.assertEqual(snapshot.refresh_state, "ok")
+
+    def test_manual_pricing_creates_local_override_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = OpenAIPricingCatalogService(
+                logger=logging.getLogger("openai-pricing-test"),
+                catalog_path=str(Path(tmp) / "openai_pricing_catalog.json"),
+            )
+            payload = service.save_manual_pricing(
+                model_id="gpt-5.4-pro-2026-03-05",
+                display_name="GPT-5.4 Pro",
+                input_price_per_1m=3.0,
+                output_price_per_1m=15.0,
+            )
+            self.assertEqual(payload["status"], "manual_saved")
+            diagnostics = service.diagnostics_payload()
+            self.assertEqual(diagnostics["refresh_state"], "manual")
+            pricing = get_openai_model_pricing("gpt-5.4-pro", pricing_service=service)
+            self.assertEqual(pricing["pricing_status"], "manual")
+            self.assertEqual(pricing["input_per_1m_tokens"], 3.0)
 
 
 if __name__ == "__main__":

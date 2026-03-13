@@ -46,8 +46,15 @@ class NodeControlFastApiTests(unittest.TestCase):
                 "api_key": api_key,
                 "admin_key": admin_key,
                 "user_identifier": user_identifier,
+                "default_model_id": self.payload.get("providers", {}).get("openai", {}).get("default_model_id"),
                 "updated_at": "2026-03-13T00:00:00Z",
             }
+            return self.payload
+
+        def update_openai_preferences(self, *, default_model_id=None):
+            self.payload.setdefault("providers", {}).setdefault("openai", {})
+            self.payload["providers"]["openai"]["default_model_id"] = default_model_id
+            self.payload["providers"]["openai"]["updated_at"] = "2026-03-13T00:00:00Z"
             return self.payload
 
     class _FakeTaskCapabilitySelectionStore:
@@ -136,6 +143,15 @@ class NodeControlFastApiTests(unittest.TestCase):
     class _FakeProviderRuntimeManager:
         async def refresh_pricing(self, *, force: bool):
             return {"status": "ok", "changed": bool(force)}
+
+        def save_manual_openai_pricing(self, *, model_id: str, display_name=None, input_price_per_1m=None, output_price_per_1m=None):
+            return {
+                "status": "manual_saved",
+                "model_id": model_id,
+                "display_name": display_name,
+                "input_price_per_1m": input_price_per_1m,
+                "output_price_per_1m": output_price_per_1m,
+            }
 
         def pricing_diagnostics_payload(self):
             return {
@@ -229,6 +245,13 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertTrue(credentials_set_response.json()["credentials"]["has_api_key"])
             self.assertTrue(credentials_set_response.json()["credentials"]["api_key_hint"].endswith("1234"))
 
+            preferences_set_response = client.post(
+                "/api/providers/openai/preferences",
+                json={"default_model_id": "gpt-5.4-pro"},
+            )
+            self.assertEqual(preferences_set_response.status_code, 200)
+            self.assertEqual(preferences_set_response.json()["credentials"]["default_model_id"], "gpt-5.4-pro")
+
             latest_models_response = client.get("/api/providers/openai/models/latest?limit=3")
             self.assertEqual(latest_models_response.status_code, 200)
             self.assertEqual(latest_models_response.json()["models"][0]["model_id"], "gpt-5")
@@ -244,6 +267,13 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertEqual(pricing_refresh_response.status_code, 200)
             self.assertEqual(pricing_refresh_response.json()["provider_id"], "openai")
             self.assertEqual(pricing_refresh_response.json()["status"], "ok")
+
+            manual_pricing_response = client.post(
+                "/api/providers/openai/pricing/manual",
+                json={"model_id": "gpt-5.4-pro", "input_price_per_1m": 3.0, "output_price_per_1m": 15.0},
+            )
+            self.assertEqual(manual_pricing_response.status_code, 200)
+            self.assertEqual(manual_pricing_response.json()["status"], "manual_saved")
 
             capability_config_get_response = client.get("/api/capabilities/config")
             self.assertEqual(capability_config_get_response.status_code, 200)

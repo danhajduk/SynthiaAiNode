@@ -20,11 +20,13 @@ class OpenAIProviderAdapter(ProviderAdapter):
         self,
         *,
         api_key: str,
+        default_model_id: str | None = None,
         base_url: str = "https://api.openai.com/v1",
         timeout_seconds: float = 20.0,
         pricing_catalog_service: OpenAIPricingCatalogService | None = None,
     ) -> None:
         self._api_key = str(api_key or "").strip()
+        self._default_model_id = str(default_model_id or "").strip() or "gpt-4o-mini"
         self._base_url = str(base_url or "https://api.openai.com/v1").rstrip("/")
         self._timeout_seconds = float(timeout_seconds)
         self._pricing_catalog_service = pricing_catalog_service
@@ -139,7 +141,7 @@ class OpenAIProviderAdapter(ProviderAdapter):
 
     async def execute_prompt(self, request: UnifiedExecutionRequest) -> UnifiedExecutionResponse:
         started = time.perf_counter()
-        model = str(request.requested_model or "").strip() or "gpt-4o-mini"
+        model = str(request.requested_model or "").strip() or self._default_model_id
         messages = list(request.messages or [])
         if not messages:
             if request.system_prompt:
@@ -201,7 +203,7 @@ class OpenAIProviderAdapter(ProviderAdapter):
         pricing = get_openai_model_pricing(model_id, pricing_service=self._pricing_catalog_service)
         if not isinstance(pricing, dict):
             return None
-        if str(pricing.get("pricing_status") or "").strip() not in {"ok"}:
+        if str(pricing.get("pricing_status") or "").strip() not in {"ok", "manual"}:
             return None
         in_rate = pricing.get("input_per_1m_tokens")
         out_rate = pricing.get("output_per_1m_tokens")

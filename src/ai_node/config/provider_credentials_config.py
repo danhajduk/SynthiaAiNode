@@ -35,6 +35,7 @@ def _normalize_provider_payload(payload: object) -> dict:
         "api_key": _normalize_string(payload.get("api_key")),
         "admin_key": _normalize_string(payload.get("admin_key")),
         "user_identifier": _normalize_string(payload.get("user_identifier")),
+        "default_model_id": _normalize_string(payload.get("default_model_id")),
         "updated_at": _normalize_string(payload.get("updated_at")) or _iso_now(),
     }
 
@@ -94,6 +95,7 @@ def summarize_provider_credentials(payload: dict | None) -> dict:
             "api_key_hint": _mask_secret(api_key),
             "admin_key_hint": _mask_secret(admin_key),
             "user_identifier": user_identifier,
+            "default_model_id": _normalize_string(provider_payload.get("default_model_id")),
             "updated_at": _normalize_string(provider_payload.get("updated_at")),
         }
     return {"configured": bool(summary), "providers": summary}
@@ -166,7 +168,26 @@ class ProviderCredentialsStore:
             "api_key": normalized_api_key,
             "admin_key": _normalize_string(admin_key),
             "user_identifier": _normalize_string(user_identifier),
+            "default_model_id": _normalize_string((providers.get("openai") or {}).get("default_model_id")),
             "updated_at": _iso_now(),
         }
+        self.save(payload)
+        return payload
+
+    def update_openai_preferences(self, *, default_model_id: str | None = None) -> dict:
+        payload = self.load_or_create()
+        providers = payload.setdefault("providers", {})
+        existing = providers.get("openai")
+        if not isinstance(existing, dict):
+            existing = {
+                "api_key": None,
+                "admin_key": None,
+                "user_identifier": None,
+                "default_model_id": None,
+                "updated_at": _iso_now(),
+            }
+        existing["default_model_id"] = _normalize_string(default_model_id)
+        existing["updated_at"] = _iso_now()
+        providers["openai"] = existing
         self.save(payload)
         return payload

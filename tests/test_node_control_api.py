@@ -12,6 +12,15 @@ class NodeControlApiTests(unittest.TestCase):
         async def refresh_pricing(self, *, force: bool):
             return {"status": "ok", "changed": bool(force)}
 
+        def save_manual_openai_pricing(self, *, model_id: str, display_name=None, input_price_per_1m=None, output_price_per_1m=None):
+            return {
+                "status": "manual_saved",
+                "model_id": model_id,
+                "display_name": display_name,
+                "input_price_per_1m": input_price_per_1m,
+                "output_price_per_1m": output_price_per_1m,
+            }
+
         def pricing_diagnostics_payload(self):
             return {
                 "configured": True,
@@ -74,8 +83,15 @@ class NodeControlApiTests(unittest.TestCase):
                 "api_key": api_key,
                 "admin_key": admin_key,
                 "user_identifier": user_identifier,
+                "default_model_id": self.payload.get("providers", {}).get("openai", {}).get("default_model_id"),
                 "updated_at": "2026-03-13T00:00:00Z",
             }
+            return self.payload
+
+        def update_openai_preferences(self, *, default_model_id=None):
+            self.payload.setdefault("providers", {}).setdefault("openai", {})
+            self.payload["providers"]["openai"]["default_model_id"] = default_model_id
+            self.payload["providers"]["openai"]["updated_at"] = "2026-03-13T00:00:00Z"
             return self.payload
 
     class _FakeTaskCapabilitySelectionStore:
@@ -332,6 +348,18 @@ class NodeControlApiTests(unittest.TestCase):
             diagnostics = state.openai_pricing_diagnostics_payload()
             self.assertEqual(diagnostics["provider_id"], "openai")
             self.assertEqual(diagnostics["entry_count"], 3)
+
+    def test_update_openai_preferences_persists_default_model(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
+            state = NodeControlState(
+                lifecycle=lifecycle,
+                config_path=str(Path(tmp) / "bootstrap_config.json"),
+                logger=logging.getLogger("node-control-test"),
+                provider_credentials_store=self._FakeProviderCredentialsStore(),
+            )
+            payload = state.update_openai_preferences(default_model_id="gpt-5.4-pro")
+            self.assertEqual(payload["credentials"]["default_model_id"], "gpt-5.4-pro")
 
     def test_capability_declaration_gate_requires_setup_prerequisites(self):
         with tempfile.TemporaryDirectory() as tmp:

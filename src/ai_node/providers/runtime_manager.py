@@ -12,6 +12,8 @@ from ai_node.providers.openai_catalog import (
     DEFAULT_OPENAI_PRICING_REFRESH_INTERVAL_SECONDS,
     DEFAULT_OPENAI_PRICING_STALE_TOLERANCE_SECONDS,
     OpenAIPricingCatalogService,
+    is_openai_date_versioned_model_id,
+    resolve_openai_base_model_id,
 )
 from ai_node.providers.provider_registry import ProviderRegistry
 
@@ -96,6 +98,21 @@ class ProviderRuntimeManager:
 
     async def refresh_pricing(self, *, force: bool) -> dict:
         return await self._pricing_catalog_service.refresh(force=force)
+
+    def save_manual_openai_pricing(
+        self,
+        *,
+        model_id: str,
+        display_name: str | None = None,
+        input_price_per_1m: float | None = None,
+        output_price_per_1m: float | None = None,
+    ) -> dict:
+        return self._pricing_catalog_service.save_manual_pricing(
+            model_id=model_id,
+            display_name=display_name,
+            input_price_per_1m=input_price_per_1m,
+            output_price_per_1m=output_price_per_1m,
+        )
 
     async def execute(self, request: UnifiedExecutionRequest) -> UnifiedExecutionResponse:
         response = await self._router.execute(request)
@@ -191,8 +208,20 @@ class ProviderRuntimeManager:
 
     def latest_models_payload(self, *, provider_id: str, limit: int = 3) -> dict:
         models = self._registry.list_models_by_provider(provider_id)
+        canonical_models: dict[str, dict] = {}
+        for model in models:
+            payload = model.model_dump()
+            model_id = str(payload.get("model_id") or "").strip()
+            if provider_id == "openai" and is_openai_date_versioned_model_id(model_id):
+                continue
+            canonical_id = resolve_openai_base_model_id(model_id) if provider_id == "openai" else model_id
+            existing = canonical_models.get(canonical_id)
+            if existing is None or int(payload.get("created") or 0) >= int(existing.get("created") or 0):
+                payload["model_id"] = canonical_id
+                payload["base_model_id"] = canonical_id
+                canonical_models[canonical_id] = payload
         sorted_models = sorted(
-            [model.model_dump() for model in models],
+            canonical_models.values(),
             key=lambda item: (int(item.get("created") or 0), str(item.get("model_id") or "")),
             reverse=True,
         )
@@ -229,6 +258,7 @@ class ProviderRuntimeManager:
         if provider_id == "openai":
             return OpenAIProviderAdapter(
                 api_key=settings.api_key or "",
+                default_model_id=settings.default_model_id,
                 base_url=settings.base_url or "https://api.openai.com/v1",
                 timeout_seconds=settings.timeout_seconds,
                 pricing_catalog_service=self._pricing_catalog_service,

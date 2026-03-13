@@ -11,6 +11,7 @@ class ProviderSettings:
     enabled: bool
     api_key_env: str | None = None
     api_key: str | None = None
+    default_model_id: str | None = None
     base_url: str | None = None
     timeout_seconds: float = 20.0
     retry_count: int = 1
@@ -54,6 +55,12 @@ class ProviderConfigLoader:
                         _first_non_empty_string(
                             str(os.environ.get(api_key_env) or "").strip() or None,
                             stored_openai.get("api_key") if isinstance(stored_openai, dict) else None,
+                        )
+                    ),
+                    default_model_id=(
+                        _first_non_empty_string(
+                            str(os.environ.get("SYNTHIA_OPENAI_DEFAULT_MODEL_ID") or "").strip() or None,
+                            stored_openai.get("default_model_id") if isinstance(stored_openai, dict) else None,
                         )
                     ),
                     base_url=str(os.environ.get("SYNTHIA_OPENAI_BASE_URL") or "https://api.openai.com/v1").strip(),

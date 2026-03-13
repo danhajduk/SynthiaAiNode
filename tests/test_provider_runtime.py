@@ -6,7 +6,7 @@ from pathlib import Path
 from ai_node.providers.adapters.mock_adapter import MockProviderAdapter
 from ai_node.providers.execution_router import ProviderExecutionRouter
 from ai_node.providers.metrics import ProviderMetricsCollector
-from ai_node.providers.models import UnifiedExecutionRequest
+from ai_node.providers.models import ModelCapability, UnifiedExecutionRequest
 from ai_node.providers.provider_registry import ProviderRegistry
 from ai_node.providers.runtime_manager import ProviderRuntimeManager
 
@@ -113,6 +113,25 @@ class ProviderRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(response.model_id, "mock-model-v1")
             self.assertTrue(response.output_text.startswith("mock:"))
             self.assertGreaterEqual(response.usage.total_tokens, 1)
+
+    async def test_latest_models_payload_filters_dated_openai_variants(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = ProviderRuntimeManager(
+                logger=logging.getLogger("provider-runtime-test"),
+                provider_selection_store=_SelectionStore(enabled=["local"]),
+                registry_path=str(Path(tmp) / "provider_registry.json"),
+                metrics_path=str(Path(tmp) / "provider_metrics.json"),
+            )
+            runtime._registry.set_models_for_provider(  # noqa: SLF001 - targeted integration test
+                provider_id="openai",
+                models=[
+                    ModelCapability(model_id="gpt-5.4-pro-2026-03-05", display_name="gpt-5.4-pro-2026-03-05", created=1741132800),
+                    ModelCapability(model_id="gpt-5.4-pro", display_name="gpt-5.4-pro", created=1741046400),
+                    ModelCapability(model_id="gpt-5.4-mini", display_name="gpt-5.4-mini", created=1740950000),
+                ],
+            )
+            payload = runtime.latest_models_payload(provider_id="openai", limit=9)
+            self.assertEqual([item["model_id"] for item in payload["models"]], ["gpt-5.4-pro", "gpt-5.4-mini"])
 
 
 if __name__ == "__main__":

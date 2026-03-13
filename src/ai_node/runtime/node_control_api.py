@@ -333,6 +333,7 @@ class NodeControlState:
                 "api_key_hint": None,
                 "admin_key_hint": None,
                 "user_identifier": None,
+                "default_model_id": None,
                 "updated_at": None,
             },
         }
@@ -519,6 +520,13 @@ class NodeControlState:
         )
         return self.provider_credentials_payload(provider_id="openai")
 
+    def update_openai_preferences(self, *, default_model_id: str | None = None) -> dict:
+        if self._provider_credentials_store is None or not hasattr(self._provider_credentials_store, "update_openai_preferences"):
+            raise ValueError("provider credentials store is not configured")
+        payload = self._provider_credentials_store.update_openai_preferences(default_model_id=default_model_id)
+        self._provider_credentials_summary = summarize_provider_credentials(payload)
+        return self.provider_credentials_payload(provider_id="openai")
+
     def latest_provider_models_payload(self, *, provider_id: str, limit: int = 3) -> dict:
         normalized_provider = str(provider_id or "").strip().lower()
         if self._provider_runtime_manager is not None and hasattr(self._provider_runtime_manager, "latest_models_payload"):
@@ -611,6 +619,24 @@ class NodeControlState:
             "force_refresh": bool(force_refresh),
             **(payload if isinstance(payload, dict) else {}),
         }
+
+    def save_openai_manual_pricing(
+        self,
+        *,
+        model_id: str,
+        display_name: str | None = None,
+        input_price_per_1m: float | None = None,
+        output_price_per_1m: float | None = None,
+    ) -> dict:
+        if self._provider_runtime_manager is None or not hasattr(self._provider_runtime_manager, "save_manual_openai_pricing"):
+            raise ValueError("manual pricing save is not configured")
+        payload = self._provider_runtime_manager.save_manual_openai_pricing(
+            model_id=model_id,
+            display_name=display_name,
+            input_price_per_1m=input_price_per_1m,
+            output_price_per_1m=output_price_per_1m,
+        )
+        return {"provider_id": "openai", **(payload if isinstance(payload, dict) else {})}
 
     def openai_pricing_diagnostics_payload(self) -> dict:
         if self._provider_runtime_manager is None or not hasattr(self._provider_runtime_manager, "pricing_diagnostics_payload"):
@@ -819,6 +845,10 @@ class OpenAICredentialsRequest(BaseModel):
     user_identifier: str | None = None
 
 
+class OpenAIPreferencesRequest(BaseModel):
+    default_model_id: str | None = None
+
+
 class TaskCapabilitySelectionRequest(BaseModel):
     selected_task_families: list[str]
 
@@ -833,6 +863,13 @@ class ProviderCapabilityRefreshRequest(BaseModel):
 
 class OpenAIPricingRefreshRequest(BaseModel):
     force_refresh: bool = True
+
+
+class OpenAIManualPricingRequest(BaseModel):
+    model_id: str
+    display_name: str | None = None
+    input_price_per_1m: float | None = None
+    output_price_per_1m: float | None = None
 
 
 class PromptServiceRegisterRequest(BaseModel):
@@ -884,8 +921,10 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
                 "/api/onboarding/restart",
                 "/api/providers/config",
                 "/api/providers/openai/credentials",
+                "/api/providers/openai/preferences",
                 "/api/providers/openai/models/latest",
                 "/api/providers/openai/pricing/diagnostics",
+                "/api/providers/openai/pricing/manual",
                 "/api/providers/openai/pricing/refresh",
                 "/api/capabilities/config",
                 "/api/capabilities/declare",
@@ -953,6 +992,13 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    @app.post("/api/providers/openai/preferences")
+    def post_openai_preferences(payload: OpenAIPreferencesRequest):
+        try:
+            return state.update_openai_preferences(default_model_id=payload.default_model_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @app.get("/api/providers/openai/models/latest")
     def get_openai_latest_models(limit: int = 3):
         return state.latest_provider_models_payload(provider_id="openai", limit=limit)
@@ -965,6 +1011,18 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     async def post_openai_pricing_refresh(payload: OpenAIPricingRefreshRequest):
         try:
             return await state.refresh_openai_pricing(force_refresh=payload.force_refresh)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/providers/openai/pricing/manual")
+    def post_openai_manual_pricing(payload: OpenAIManualPricingRequest):
+        try:
+            return state.save_openai_manual_pricing(
+                model_id=payload.model_id,
+                display_name=payload.display_name,
+                input_price_per_1m=payload.input_price_per_1m,
+                output_price_per_1m=payload.output_price_per_1m,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

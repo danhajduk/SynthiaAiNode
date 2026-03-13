@@ -52,11 +52,20 @@
   gap: 10px;
 }
 
+.mini-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .model-card {
   border: 1px solid hsl(var(--color-border));
   border-radius: var(--radius-sm);
   padding: 12px;
   background: hsl(var(--color-bg));
+}
+
+.mini-model-card.is-selected {
+  border-color: #1f9d55;
+  box-shadow: 0 0 0 1px rgba(31, 157, 85, 0.2);
 }
 
 .model-card-header,
@@ -77,6 +86,23 @@
 .model-preview h3 {
   margin: 0 0 8px;
   font-size: 1rem;
+}
+
+.model-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.manual-pricing-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid hsl(var(--color-border));
 }
 
 .row {

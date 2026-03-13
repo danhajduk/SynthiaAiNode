@@ -102,9 +102,18 @@ This is the canonical source-of-truth contract for:
 - Error:
   - `400` when provider credential validation/store fails.
 
+### Save OpenAI preferred model
+
+- `POST /api/providers/openai/preferences`
+- Request:
+  - `default_model_id?: string | null`
+- Success: redacted OpenAI credential summary payload with `credentials.default_model_id`.
+- Error:
+  - `400` when provider credential preference persistence fails.
+
 ### Read latest OpenAI models
 
-- `GET /api/providers/openai/models/latest?limit=3`
+- `GET /api/providers/openai/models/latest?limit=9`
 - Response:
   - `provider_id: "openai"`
   - `models[]`
@@ -114,6 +123,8 @@ This is the canonical source-of-truth contract for:
     - `status`
     - `pricing.input_per_1m_tokens`
     - `pricing.output_per_1m_tokens`
+
+For OpenAI, date-stamped variants such as `gpt-5.4-pro-2026-03-05` are filtered out of this response in favor of canonical model IDs such as `gpt-5.4-pro`.
 
 ### Read OpenAI pricing diagnostics
 
@@ -142,6 +153,22 @@ This is the canonical source-of-truth contract for:
   - `snapshot: object | null`
 - Error:
   - `400` when pricing refresh runtime is unavailable.
+
+### Save manual OpenAI pricing
+
+- `POST /api/providers/openai/pricing/manual`
+- Request:
+  - `model_id: string`
+  - `display_name?: string | null`
+  - `input_price_per_1m?: number | null`
+  - `output_price_per_1m?: number | null`
+- Success:
+  - `provider_id: "openai"`
+  - `status: "manual_saved"`
+  - `model_id`
+  - `snapshot`
+- Error:
+  - `400` when manual pricing persistence fails or no prices are provided.
 
 ## Task Capability Configuration
 

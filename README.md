@@ -84,11 +84,17 @@ curl http://127.0.0.1:9002/api/providers/openai/credentials
 curl -X POST http://127.0.0.1:9002/api/providers/openai/credentials \
   -H 'Content-Type: application/json' \
   -d '{"api_key":"sk-...","admin_key":null,"user_identifier":"ops"}'
-curl http://127.0.0.1:9002/api/providers/openai/models/latest?limit=3
+curl -X POST http://127.0.0.1:9002/api/providers/openai/preferences \
+  -H 'Content-Type: application/json' \
+  -d '{"default_model_id":"gpt-5.4-pro"}'
+curl http://127.0.0.1:9002/api/providers/openai/models/latest?limit=9
 curl http://127.0.0.1:9002/api/providers/openai/pricing/diagnostics
 curl -X POST http://127.0.0.1:9002/api/providers/openai/pricing/refresh \
   -H 'Content-Type: application/json' \
   -d '{"force_refresh":true}'
+curl -X POST http://127.0.0.1:9002/api/providers/openai/pricing/manual \
+  -H 'Content-Type: application/json' \
+  -d '{"model_id":"gpt-5.4-pro","input_price_per_1m":3.0,"output_price_per_1m":15.0}'
 ```
 
 Task capability selection endpoints:

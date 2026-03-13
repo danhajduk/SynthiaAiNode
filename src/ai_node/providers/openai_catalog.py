@@ -155,6 +155,13 @@ def resolve_openai_base_model_id(model_id: str) -> str:
     return normalized
 
 
+def is_openai_date_versioned_model_id(model_id: str) -> bool:
+    normalized = _normalize_string(model_id).lower()
+    if not normalized:
+        return False
+    return any(pattern.match(normalized) is not None for pattern in _DATE_SUFFIX_PATTERNS)
+
+
 def _price_fields_present(entry: OpenAIPricingEntry) -> bool:
     return any(getattr(entry, key) is not None for key in PRICE_FIELD_KEYS)
 
@@ -459,6 +466,66 @@ class OpenAIPricingCatalogService:
                 "snapshot": stale_snapshot.model_dump() if stale_snapshot is not None else None,
                 "error": error,
             }
+
+    def save_manual_pricing(
+        self,
+        *,
+        model_id: str,
+        display_name: str | None = None,
+        input_price_per_1m: float | None = None,
+        output_price_per_1m: float | None = None,
+    ) -> dict:
+        normalized_model_id = resolve_openai_base_model_id(model_id)
+        if not normalized_model_id:
+            raise ValueError("model_id is required")
+        if input_price_per_1m is None and output_price_per_1m is None:
+            raise ValueError("at least one manual price is required")
+        previous = self.load_snapshot()
+        entries = list(previous.entries) if previous is not None else []
+        existing_index = next((index for index, entry in enumerate(entries) if entry.model_id == normalized_model_id), None)
+        manual_entry = OpenAIPricingEntry(
+            model_id=normalized_model_id,
+            display_name=_normalize_string(display_name) or normalized_model_id,
+            input_price_per_1m=input_price_per_1m,
+            output_price_per_1m=output_price_per_1m,
+            cached_input_price_per_1m=(entries[existing_index].cached_input_price_per_1m if existing_index is not None else None),
+            batch_input_price_per_1m=(entries[existing_index].batch_input_price_per_1m if existing_index is not None else None),
+            batch_output_price_per_1m=(entries[existing_index].batch_output_price_per_1m if existing_index is not None else None),
+            source_url="manual://local_override",
+            scraped_at=_iso_now(),
+            pricing_status="manual",
+            notes=["manual_pricing_override"],
+        )
+        if existing_index is not None:
+            existing = entries[existing_index]
+            manual_entry = manual_entry.model_copy(
+                update={
+                    "display_name": _normalize_string(display_name) or existing.display_name,
+                    "input_price_per_1m": input_price_per_1m if input_price_per_1m is not None else existing.input_price_per_1m,
+                    "output_price_per_1m": output_price_per_1m if output_price_per_1m is not None else existing.output_price_per_1m,
+                    "cached_input_price_per_1m": existing.cached_input_price_per_1m,
+                    "batch_input_price_per_1m": existing.batch_input_price_per_1m,
+                    "batch_output_price_per_1m": existing.batch_output_price_per_1m,
+                }
+            )
+            entries[existing_index] = manual_entry
+        else:
+            entries.append(manual_entry)
+        changes = _build_change_summary(previous, entries)
+        snapshot = OpenAIPricingSnapshot(
+            source_urls=list(self._source_urls),
+            source_url_used="manual://local_override",
+            scraped_at=_iso_now(),
+            refresh_state="manual",
+            stale=False,
+            last_error=None,
+            entries=entries,
+            unknown_models=(previous.unknown_models if previous is not None else []),
+            changes=changes,
+            notes=["manual_pricing_saved"],
+        )
+        self._store.save(snapshot)
+        return {"status": "manual_saved", "changed": True, "snapshot": snapshot.model_dump(), "model_id": normalized_model_id}
 
     def get_pricing_entry(self, model_id: str) -> OpenAIPricingEntry | None:
         snapshot = self.load_snapshot()

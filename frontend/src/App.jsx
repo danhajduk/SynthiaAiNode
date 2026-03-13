@@ -12,7 +12,7 @@ const DIAGNOSTIC_ENDPOINTS = [
   "/api/governance/status",
   "/api/providers/config",
   "/api/providers/openai/credentials",
-  "/api/providers/openai/models/latest",
+  "/api/providers/openai/models/latest?limit=9",
   "/api/capabilities/config",
   "/api/services/status",
 ];
@@ -81,7 +81,12 @@ export default function App() {
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openaiAdminKey, setOpenaiAdminKey] = useState("");
   const [openaiUserIdentifier, setOpenaiUserIdentifier] = useState("");
+  const [selectedOpenaiModelId, setSelectedOpenaiModelId] = useState("");
+  const [manualPricingInput, setManualPricingInput] = useState("");
+  const [manualPricingOutput, setManualPricingOutput] = useState("");
   const [savingCredentials, setSavingCredentials] = useState(false);
+  const [savingModelPreference, setSavingModelPreference] = useState(false);
+  const [savingManualPricing, setSavingManualPricing] = useState(false);
   const [refreshingLatestModels, setRefreshingLatestModels] = useState(false);
   const [pricingRefreshState, setPricingRefreshState] = useState("");
   const [uiState, setUiState] = useState(() =>
@@ -109,7 +114,7 @@ export default function App() {
       apiGet("/api/governance/status"),
       apiGet("/api/providers/config"),
       apiGet("/api/providers/openai/credentials"),
-      apiGet("/api/providers/openai/models/latest?limit=3"),
+      apiGet("/api/providers/openai/models/latest?limit=9"),
       apiGet("/api/capabilities/config"),
       apiGet("/api/services/status"),
     ]);
@@ -169,6 +174,9 @@ export default function App() {
     if (!showProviderCredentialsPopup && providerCredentialsPayload?.credentials?.user_identifier) {
       setOpenaiUserIdentifier(providerCredentialsPayload.credentials.user_identifier);
     }
+    if (!showProviderCredentialsPopup) {
+      setSelectedOpenaiModelId(providerCredentialsPayload?.credentials?.default_model_id || "");
+    }
     if ((payload.status || "unknown") === "capability_setup_pending" && providerPayload) {
       const enabledProviders = providerPayload?.config?.providers?.enabled || [];
       setOpenaiEnabled(enabledProviders.includes("openai"));
@@ -209,6 +217,27 @@ export default function App() {
       setCapabilityPopupDismissed(false);
     }
   }, [backendStatus, capabilityPopupDismissed]);
+
+  useEffect(() => {
+    if (!selectedOpenaiModelId && latestOpenaiModels.length) {
+      setSelectedOpenaiModelId(providerCredentials?.credentials?.default_model_id || latestOpenaiModels[0].model_id);
+    }
+  }, [latestOpenaiModels, providerCredentials, selectedOpenaiModelId]);
+
+  useEffect(() => {
+    const selectedModel = latestOpenaiModels.find((model) => model.model_id === selectedOpenaiModelId);
+    if (!selectedModel) {
+      setManualPricingInput("");
+      setManualPricingOutput("");
+      return;
+    }
+    setManualPricingInput(
+      typeof selectedModel.pricing?.input_per_1m_tokens === "number" ? String(selectedModel.pricing.input_per_1m_tokens) : ""
+    );
+    setManualPricingOutput(
+      typeof selectedModel.pricing?.output_per_1m_tokens === "number" ? String(selectedModel.pricing.output_per_1m_tokens) : ""
+    );
+  }, [selectedOpenaiModelId, latestOpenaiModels]);
 
   async function onSubmit(event) {
     event.preventDefault();
@@ -252,6 +281,7 @@ export default function App() {
   const hasCapabilityRegistration = Boolean(uiState.capabilitySummary.capabilityDeclarationTimestamp);
   const canManageOpenAiCredentials =
     hasCapabilityRegistration && uiState.capabilitySummary.enabledProviders.includes("openai");
+  const selectedOpenaiModel = latestOpenaiModels.find((model) => model.model_id === selectedOpenaiModelId) || null;
   const setupReadinessFlags = uiState.capabilitySummary.setupReadinessFlags || {};
   const setupBlockingReasons = uiState.capabilitySummary.setupBlockingReasons || [];
   const capabilityDeclareAllowed = uiState.capabilitySummary.declarationAllowed;
@@ -376,7 +406,7 @@ export default function App() {
       const pricingRefreshPayload = await apiPost("/api/providers/openai/pricing/refresh", { force_refresh: true });
       setPricingRefreshState(String(pricingRefreshPayload?.status || "unknown"));
       await apiPost("/api/capabilities/providers/refresh", { force_refresh: true });
-      const latestModelsPayload = await apiGet("/api/providers/openai/models/latest?limit=3");
+      const latestModelsPayload = await apiGet("/api/providers/openai/models/latest?limit=9");
       setLatestOpenaiModels(Array.isArray(latestModelsPayload?.models) ? latestModelsPayload.models : []);
       await loadStatus();
     } catch (err) {
@@ -406,6 +436,52 @@ export default function App() {
       setError(message);
     } finally {
       setSavingCredentials(false);
+    }
+  }
+
+  async function onSaveOpenAiPreference() {
+    if (!selectedOpenaiModelId || savingModelPreference) {
+      return;
+    }
+    setSavingModelPreference(true);
+    setError("");
+    try {
+      const payload = await apiPost("/api/providers/openai/preferences", {
+        default_model_id: selectedOpenaiModelId,
+      });
+      setProviderCredentials(payload);
+      await refreshOpenAiModels();
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setSavingModelPreference(false);
+    }
+  }
+
+  async function onSaveManualPricing(event) {
+    event.preventDefault();
+    if (!selectedOpenaiModelId || savingManualPricing) {
+      return;
+    }
+    setSavingManualPricing(true);
+    setError("");
+    try {
+      await apiPost("/api/providers/openai/pricing/manual", {
+        model_id: selectedOpenaiModelId,
+        display_name: selectedOpenaiModel?.display_name || selectedOpenaiModelId,
+        input_price_per_1m: manualPricingInput === "" ? null : Number(manualPricingInput),
+        output_price_per_1m: manualPricingOutput === "" ? null : Number(manualPricingOutput),
+      });
+      await apiPost("/api/providers/openai/preferences", {
+        default_model_id: selectedOpenaiModelId,
+      });
+      await refreshOpenAiModels();
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setSavingManualPricing(false);
     }
   }
 
@@ -518,7 +594,7 @@ export default function App() {
           <article className="card modal-card">
             <CardHeader
               title="OpenAI Credentials"
-              subtitle="Save local provider credentials, then refresh discovery to capture the latest three models."
+              subtitle="Save local provider credentials, pick a canonical model, and enter manual pricing when live pricing is blocked."
             />
             <form className="setup-form" onSubmit={onSaveOpenAiCredentials}>
               <label>
@@ -555,6 +631,8 @@ export default function App() {
                 <code>{openaiCredentialSummary.admin_key_hint || "not_saved"}</code>
                 <span>Saved Label</span>
                 <code>{openaiCredentialSummary.user_identifier || "none"}</code>
+                <span>Selected Model</span>
+                <code>{openaiCredentialSummary.default_model_id || "not_selected"}</code>
                 <span>Updated</span>
                 <code>{openaiCredentialSummary.updated_at || "never"}</code>
               </div>
@@ -592,11 +670,24 @@ export default function App() {
               ) : null}
             </form>
             <div className="modal-capability-data">
-              <h3>Latest OpenAI Models</h3>
+              <div className="model-section-header">
+                <h3>Canonical OpenAI Models</h3>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={onSaveOpenAiPreference}
+                  disabled={!selectedOpenaiModelId || savingModelPreference}
+                >
+                  {savingModelPreference ? "Saving..." : "Save Selected Model"}
+                </button>
+              </div>
               {latestOpenaiModels.length ? (
-                <div className="model-list">
+                <div className="model-list mini-card-grid">
                   {latestOpenaiModels.map((model) => (
-                    <article key={model.model_id} className="model-card">
+                    <article
+                      key={model.model_id}
+                      className={`model-card mini-model-card ${selectedOpenaiModelId === model.model_id ? "is-selected" : ""}`}
+                    >
                       <div className="model-card-header">
                         <strong>{model.display_name || model.model_id}</strong>
                         <StatusBadge value={model.status || "available"} />
@@ -611,6 +702,15 @@ export default function App() {
                         <span>Output Price</span>
                         <code>{formatPrice(model.pricing?.output_per_1m_tokens)}</code>
                       </div>
+                      <div className="row">
+                        <button
+                          className={`btn ${selectedOpenaiModelId === model.model_id ? "btn-primary" : ""}`}
+                          type="button"
+                          onClick={() => setSelectedOpenaiModelId(model.model_id)}
+                        >
+                          {selectedOpenaiModelId === model.model_id ? "Selected" : "Use This Model"}
+                        </button>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -619,6 +719,59 @@ export default function App() {
                   No OpenAI models discovered yet. Save credentials and run a refresh to populate this list.
                 </p>
               )}
+              {selectedOpenaiModel ? (
+                <form className="manual-pricing-form" onSubmit={onSaveManualPricing}>
+                  <div className="model-section-header">
+                    <h3>Manual Pricing</h3>
+                    <span className="muted tiny">
+                      Selected: <code>{selectedOpenaiModel.model_id}</code>
+                    </span>
+                  </div>
+                  <div className="state-grid">
+                    <span>Current Input</span>
+                    <code>{formatPrice(selectedOpenaiModel.pricing?.input_per_1m_tokens)}</code>
+                    <span>Current Output</span>
+                    <code>{formatPrice(selectedOpenaiModel.pricing?.output_per_1m_tokens)}</code>
+                  </div>
+                  <label>
+                    Manual Input Price / 1M
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={manualPricingInput}
+                      onChange={(event) => setManualPricingInput(event.target.value)}
+                      placeholder="e.g. 3.000"
+                    />
+                  </label>
+                  <label>
+                    Manual Output Price / 1M
+                    <input
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      value={manualPricingOutput}
+                      onChange={(event) => setManualPricingOutput(event.target.value)}
+                      placeholder="e.g. 15.000"
+                    />
+                  </label>
+                  <div className="row">
+                    <button className="btn btn-primary" type="submit" disabled={savingManualPricing}>
+                      {savingManualPricing ? "Saving..." : "Save Manual Price"}
+                    </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        setManualPricingInput("");
+                        setManualPricingOutput("");
+                      }}
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </form>
+              ) : null}
             </div>
           </article>
         </section>
@@ -830,7 +983,8 @@ export default function App() {
                 <span className="muted tiny">Available after capability registration completes with OpenAI enabled.</span>
               ) : (
                 <span className="muted tiny">
-                  Saved key: <code>{openaiCredentialSummary.api_key_hint || "not_saved"}</code>
+                  Saved key: <code>{openaiCredentialSummary.api_key_hint || "not_saved"}</code> | Model:{" "}
+                  <code>{openaiCredentialSummary.default_model_id || "not_selected"}</code>
                 </span>
               )}
             </div>
@@ -848,7 +1002,7 @@ export default function App() {
             </div>
             {canManageOpenAiCredentials ? (
               <div className="model-preview">
-                <h3>Latest 3 OpenAI Models</h3>
+                <h3>Latest 9 Canonical OpenAI Models</h3>
                 {latestOpenaiModels.length ? (
                   <div className="model-preview-list">
                     {latestOpenaiModels.map((model) => (
