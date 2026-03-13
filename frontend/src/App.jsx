@@ -90,6 +90,12 @@ export default function App() {
   const [savingBulkManualPricing, setSavingBulkManualPricing] = useState(false);
   const [refreshingLatestModels, setRefreshingLatestModels] = useState(false);
   const [pricingRefreshState, setPricingRefreshState] = useState("");
+  const [showModelPricingPopup, setShowModelPricingPopup] = useState(false);
+  const [pricingReviewModelIds, setPricingReviewModelIds] = useState([]);
+  const [pricingReviewIndex, setPricingReviewIndex] = useState(0);
+  const [popupPricingInput, setPopupPricingInput] = useState("");
+  const [popupPricingOutput, setPopupPricingOutput] = useState("");
+  const [savingPopupPricing, setSavingPopupPricing] = useState(false);
   const [uiState, setUiState] = useState(() =>
     buildDashboardUiState({
       nodeStatus: null,
@@ -248,6 +254,24 @@ export default function App() {
     );
   }, [selectedOpenaiModelIds, latestOpenaiModels]);
 
+  useEffect(() => {
+    if (!pricingReviewModel) {
+      setPopupPricingInput("");
+      setPopupPricingOutput("");
+      return;
+    }
+    setPopupPricingInput(
+      typeof pricingReviewModel.pricing?.input_per_1m_tokens === "number"
+        ? String(pricingReviewModel.pricing.input_per_1m_tokens)
+        : ""
+    );
+    setPopupPricingOutput(
+      typeof pricingReviewModel.pricing?.output_per_1m_tokens === "number"
+        ? String(pricingReviewModel.pricing.output_per_1m_tokens)
+        : ""
+    );
+  }, [pricingReviewModel]);
+
   async function onSubmit(event) {
     event.preventDefault();
     setSaving(true);
@@ -291,6 +315,8 @@ export default function App() {
   const canManageOpenAiCredentials =
     hasCapabilityRegistration && uiState.capabilitySummary.enabledProviders.includes("openai");
   const selectedOpenaiModel = latestOpenaiModels.find((model) => model.model_id === (selectedOpenaiModelIds[0] || "")) || null;
+  const pricingReviewModelId = pricingReviewModelIds[pricingReviewIndex] || "";
+  const pricingReviewModel = latestOpenaiModels.find((model) => model.model_id === pricingReviewModelId) || null;
   const setupReadinessFlags = uiState.capabilitySummary.setupReadinessFlags || {};
   const setupBlockingReasons = uiState.capabilitySummary.setupBlockingReasons || [];
   const capabilityDeclareAllowed = uiState.capabilitySummary.declarationAllowed;
@@ -358,12 +384,21 @@ export default function App() {
   }
 
   async function onToggleOpenAiModel(modelId) {
+    const model = latestOpenaiModels.find((item) => item.model_id === modelId);
+    const wasSelected = selectedOpenaiModelIds.includes(modelId);
     const nextSelectedModelIds = selectedOpenaiModelIds.includes(modelId)
       ? selectedOpenaiModelIds.filter((item) => item !== modelId)
       : [...selectedOpenaiModelIds, modelId];
     setSelectedOpenaiModelIds(nextSelectedModelIds);
     try {
       await persistOpenAiPreferences(nextSelectedModelIds);
+      const hasUnavailablePricing =
+        typeof model?.pricing?.input_per_1m_tokens !== "number" || typeof model?.pricing?.output_per_1m_tokens !== "number";
+      if (!wasSelected && hasUnavailablePricing) {
+        setPricingReviewModelIds([modelId]);
+        setPricingReviewIndex(0);
+        setShowModelPricingPopup(true);
+      }
     } catch (_err) {
       setSelectedOpenaiModelIds(selectedOpenaiModelIds);
     }
@@ -542,6 +577,50 @@ export default function App() {
     }
   }
 
+  function startPricingReview(modelIds) {
+    const normalizedModelIds = modelIds.filter(Boolean);
+    if (!normalizedModelIds.length) {
+      return;
+    }
+    setPricingReviewModelIds(normalizedModelIds);
+    setPricingReviewIndex(0);
+    setShowModelPricingPopup(true);
+  }
+
+  function advancePricingReview() {
+    if (pricingReviewIndex + 1 < pricingReviewModelIds.length) {
+      setPricingReviewIndex((current) => current + 1);
+      return;
+    }
+    setShowModelPricingPopup(false);
+    setPricingReviewModelIds([]);
+    setPricingReviewIndex(0);
+  }
+
+  async function onSavePopupPricing(event) {
+    event.preventDefault();
+    if (!pricingReviewModelId || savingPopupPricing) {
+      return;
+    }
+    setSavingPopupPricing(true);
+    setError("");
+    try {
+      await apiPost("/api/providers/openai/pricing/manual", {
+        model_id: pricingReviewModelId,
+        display_name: pricingReviewModel?.display_name || pricingReviewModelId,
+        input_price_per_1m: popupPricingInput === "" ? null : Number(popupPricingInput),
+        output_price_per_1m: popupPricingOutput === "" ? null : Number(popupPricingOutput),
+      });
+      await refreshOpenAiModels();
+      advancePricingReview();
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setSavingPopupPricing(false);
+    }
+  }
+
   async function onCopyDiagnostics() {
     const payload = {
       lifecycle_state: uiState.lifecycle.current,
@@ -561,6 +640,69 @@ export default function App() {
 
   return (
     <main className="page">
+      {showModelPricingPopup && pricingReviewModel ? (
+        <section className="modal-overlay" role="dialog" aria-modal="true" aria-label="Model pricing">
+          <article className="card modal-card">
+            <CardHeader
+              title="Model Pricing"
+              subtitle="Enter pricing for this selected model if it is unavailable. You can skip and continue."
+            />
+            <div className="state-grid">
+              <span>Model</span>
+              <code>{pricingReviewModel.display_name || pricingReviewModel.model_id}</code>
+              <span>Model ID</span>
+              <code>{pricingReviewModel.model_id}</code>
+              <span>Step</span>
+              <code>
+                {pricingReviewIndex + 1} / {pricingReviewModelIds.length}
+              </code>
+            </div>
+            <form className="manual-pricing-form" onSubmit={onSavePopupPricing}>
+              <label>
+                Input Price / 1M
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={popupPricingInput}
+                  onChange={(event) => setPopupPricingInput(event.target.value)}
+                  placeholder="e.g. 3.000"
+                />
+              </label>
+              <label>
+                Output Price / 1M
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  value={popupPricingOutput}
+                  onChange={(event) => setPopupPricingOutput(event.target.value)}
+                  placeholder="e.g. 15.000"
+                />
+              </label>
+              <div className="row">
+                <button className="btn btn-primary" type="submit" disabled={savingPopupPricing}>
+                  {savingPopupPricing ? "Saving..." : "Save Price"}
+                </button>
+                <button className="btn" type="button" onClick={advancePricingReview}>
+                  Skip
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setShowModelPricingPopup(false);
+                    setPricingReviewModelIds([]);
+                    setPricingReviewIndex(0);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </form>
+          </article>
+        </section>
+      ) : null}
       {showCapabilitySetupPopup ? (
         <section className="modal-overlay" role="dialog" aria-modal="true" aria-label="Capability setup required">
           <article className="card modal-card">
@@ -815,6 +957,14 @@ export default function App() {
                   <div className="row">
                     <button className="btn btn-primary" type="submit" disabled={savingManualPricing}>
                       {savingManualPricing ? "Saving..." : "Save Manual Price"}
+                    </button>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => startPricingReview(selectedOpenaiModelIds)}
+                      disabled={!selectedOpenaiModelIds.length}
+                    >
+                      Review Selected Model Prices
                     </button>
                     <button
                       className="btn"

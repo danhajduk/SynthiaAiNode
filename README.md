@@ -107,6 +107,8 @@ curl -X POST http://127.0.0.1:9002/api/providers/openai/pricing/manual \
 UI behavior:
 
 - OpenAI model selections in the credentials popup now save automatically when you select or unselect a model.
+- Selecting a model with unavailable pricing opens a per-model pricing popup so you can enter that model's price immediately or skip it.
+- `Review Selected Model Prices` walks through the currently selected models one by one so you can set different prices per model.
 - Manual pricing can be saved for the primary selected model or applied across all selected models from the popup.
 
 Task capability selection endpoints:
