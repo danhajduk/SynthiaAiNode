@@ -334,6 +334,7 @@ class NodeControlState:
                 "admin_key_hint": None,
                 "user_identifier": None,
                 "default_model_id": None,
+                "selected_model_ids": [],
                 "updated_at": None,
             },
         }
@@ -520,10 +521,18 @@ class NodeControlState:
         )
         return self.provider_credentials_payload(provider_id="openai")
 
-    def update_openai_preferences(self, *, default_model_id: str | None = None) -> dict:
+    def update_openai_preferences(
+        self,
+        *,
+        default_model_id: str | None = None,
+        selected_model_ids: list[str] | None = None,
+    ) -> dict:
         if self._provider_credentials_store is None or not hasattr(self._provider_credentials_store, "update_openai_preferences"):
             raise ValueError("provider credentials store is not configured")
-        payload = self._provider_credentials_store.update_openai_preferences(default_model_id=default_model_id)
+        payload = self._provider_credentials_store.update_openai_preferences(
+            default_model_id=default_model_id,
+            selected_model_ids=selected_model_ids,
+        )
         self._provider_credentials_summary = summarize_provider_credentials(payload)
         return self.provider_credentials_payload(provider_id="openai")
 
@@ -847,6 +856,7 @@ class OpenAICredentialsRequest(BaseModel):
 
 class OpenAIPreferencesRequest(BaseModel):
     default_model_id: str | None = None
+    selected_model_ids: list[str] | None = None
 
 
 class TaskCapabilitySelectionRequest(BaseModel):
@@ -995,7 +1005,10 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     @app.post("/api/providers/openai/preferences")
     def post_openai_preferences(payload: OpenAIPreferencesRequest):
         try:
-            return state.update_openai_preferences(default_model_id=payload.default_model_id)
+            return state.update_openai_preferences(
+                default_model_id=payload.default_model_id,
+                selected_model_ids=payload.selected_model_ids,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

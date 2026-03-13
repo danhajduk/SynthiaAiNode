@@ -107,7 +107,13 @@ This is the canonical source-of-truth contract for:
 - `POST /api/providers/openai/preferences`
 - Request:
   - `default_model_id?: string | null`
-- Success: redacted OpenAI credential summary payload with `credentials.default_model_id`.
+  - `selected_model_ids?: string[] | null`
+- Success: redacted OpenAI credential summary payload with:
+  - `credentials.default_model_id`
+  - `credentials.selected_model_ids`
+- Behavior:
+  - `selected_model_ids` stores the full preferred model list
+  - `default_model_id` is treated as the primary model and defaults to the first selected model
 - Error:
   - `400` when provider credential preference persistence fails.
 

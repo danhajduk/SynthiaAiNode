@@ -60,6 +60,11 @@ class ProviderConfigLoader:
                     default_model_id=(
                         _first_non_empty_string(
                             str(os.environ.get("SYNTHIA_OPENAI_DEFAULT_MODEL_ID") or "").strip() or None,
+                            (
+                                (stored_openai.get("selected_model_ids") or [None])[0]
+                                if isinstance(stored_openai, dict)
+                                else None
+                            ),
                             stored_openai.get("default_model_id") if isinstance(stored_openai, dict) else None,
                         )
                     ),

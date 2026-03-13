@@ -19,6 +19,17 @@ def _normalize_string(value: object) -> str | None:
     return normalized or None
 
 
+def _normalize_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    for item in value:
+        item_value = _normalize_string(item)
+        if item_value and item_value not in normalized:
+            normalized.append(item_value)
+    return normalized
+
+
 def _mask_secret(value: object) -> str | None:
     normalized = _normalize_string(value)
     if normalized is None:
@@ -36,6 +47,7 @@ def _normalize_provider_payload(payload: object) -> dict:
         "admin_key": _normalize_string(payload.get("admin_key")),
         "user_identifier": _normalize_string(payload.get("user_identifier")),
         "default_model_id": _normalize_string(payload.get("default_model_id")),
+        "selected_model_ids": _normalize_string_list(payload.get("selected_model_ids")),
         "updated_at": _normalize_string(payload.get("updated_at")) or _iso_now(),
     }
 
@@ -96,6 +108,7 @@ def summarize_provider_credentials(payload: dict | None) -> dict:
             "admin_key_hint": _mask_secret(admin_key),
             "user_identifier": user_identifier,
             "default_model_id": _normalize_string(provider_payload.get("default_model_id")),
+            "selected_model_ids": _normalize_string_list(provider_payload.get("selected_model_ids")),
             "updated_at": _normalize_string(provider_payload.get("updated_at")),
         }
     return {"configured": bool(summary), "providers": summary}
@@ -169,12 +182,18 @@ class ProviderCredentialsStore:
             "admin_key": _normalize_string(admin_key),
             "user_identifier": _normalize_string(user_identifier),
             "default_model_id": _normalize_string((providers.get("openai") or {}).get("default_model_id")),
+            "selected_model_ids": _normalize_string_list((providers.get("openai") or {}).get("selected_model_ids")),
             "updated_at": _iso_now(),
         }
         self.save(payload)
         return payload
 
-    def update_openai_preferences(self, *, default_model_id: str | None = None) -> dict:
+    def update_openai_preferences(
+        self,
+        *,
+        default_model_id: str | None = None,
+        selected_model_ids: list[str] | None = None,
+    ) -> dict:
         payload = self.load_or_create()
         providers = payload.setdefault("providers", {})
         existing = providers.get("openai")
@@ -184,9 +203,17 @@ class ProviderCredentialsStore:
                 "admin_key": None,
                 "user_identifier": None,
                 "default_model_id": None,
+                "selected_model_ids": [],
                 "updated_at": _iso_now(),
             }
-        existing["default_model_id"] = _normalize_string(default_model_id)
+        normalized_selected = _normalize_string_list(selected_model_ids) if selected_model_ids is not None else _normalize_string_list(existing.get("selected_model_ids"))
+        normalized_default = _normalize_string(default_model_id)
+        if normalized_default and normalized_default not in normalized_selected:
+            normalized_selected = [normalized_default, *normalized_selected]
+        if not normalized_default:
+            normalized_default = normalized_selected[0] if normalized_selected else None
+        existing["default_model_id"] = normalized_default
+        existing["selected_model_ids"] = normalized_selected
         existing["updated_at"] = _iso_now()
         providers["openai"] = existing
         self.save(payload)

@@ -81,7 +81,7 @@ export default function App() {
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [openaiAdminKey, setOpenaiAdminKey] = useState("");
   const [openaiUserIdentifier, setOpenaiUserIdentifier] = useState("");
-  const [selectedOpenaiModelId, setSelectedOpenaiModelId] = useState("");
+  const [selectedOpenaiModelIds, setSelectedOpenaiModelIds] = useState([]);
   const [manualPricingInput, setManualPricingInput] = useState("");
   const [manualPricingOutput, setManualPricingOutput] = useState("");
   const [savingCredentials, setSavingCredentials] = useState(false);
@@ -175,7 +175,11 @@ export default function App() {
       setOpenaiUserIdentifier(providerCredentialsPayload.credentials.user_identifier);
     }
     if (!showProviderCredentialsPopup) {
-      setSelectedOpenaiModelId(providerCredentialsPayload?.credentials?.default_model_id || "");
+      setSelectedOpenaiModelIds(
+        Array.isArray(providerCredentialsPayload?.credentials?.selected_model_ids)
+          ? providerCredentialsPayload.credentials.selected_model_ids
+          : []
+      );
     }
     if ((payload.status || "unknown") === "capability_setup_pending" && providerPayload) {
       const enabledProviders = providerPayload?.config?.providers?.enabled || [];
@@ -219,13 +223,17 @@ export default function App() {
   }, [backendStatus, capabilityPopupDismissed]);
 
   useEffect(() => {
-    if (!selectedOpenaiModelId && latestOpenaiModels.length) {
-      setSelectedOpenaiModelId(providerCredentials?.credentials?.default_model_id || latestOpenaiModels[0].model_id);
+    if (!selectedOpenaiModelIds.length && latestOpenaiModels.length) {
+      const savedModels = Array.isArray(providerCredentials?.credentials?.selected_model_ids)
+        ? providerCredentials.credentials.selected_model_ids
+        : [];
+      setSelectedOpenaiModelIds(savedModels.length ? savedModels : [providerCredentials?.credentials?.default_model_id || latestOpenaiModels[0].model_id]);
     }
-  }, [latestOpenaiModels, providerCredentials, selectedOpenaiModelId]);
+  }, [latestOpenaiModels, providerCredentials, selectedOpenaiModelIds]);
 
   useEffect(() => {
-    const selectedModel = latestOpenaiModels.find((model) => model.model_id === selectedOpenaiModelId);
+    const selectedModelId = selectedOpenaiModelIds[0] || "";
+    const selectedModel = latestOpenaiModels.find((model) => model.model_id === selectedModelId);
     if (!selectedModel) {
       setManualPricingInput("");
       setManualPricingOutput("");
@@ -237,7 +245,7 @@ export default function App() {
     setManualPricingOutput(
       typeof selectedModel.pricing?.output_per_1m_tokens === "number" ? String(selectedModel.pricing.output_per_1m_tokens) : ""
     );
-  }, [selectedOpenaiModelId, latestOpenaiModels]);
+  }, [selectedOpenaiModelIds, latestOpenaiModels]);
 
   async function onSubmit(event) {
     event.preventDefault();
@@ -281,7 +289,7 @@ export default function App() {
   const hasCapabilityRegistration = Boolean(uiState.capabilitySummary.capabilityDeclarationTimestamp);
   const canManageOpenAiCredentials =
     hasCapabilityRegistration && uiState.capabilitySummary.enabledProviders.includes("openai");
-  const selectedOpenaiModel = latestOpenaiModels.find((model) => model.model_id === selectedOpenaiModelId) || null;
+  const selectedOpenaiModel = latestOpenaiModels.find((model) => model.model_id === (selectedOpenaiModelIds[0] || "")) || null;
   const setupReadinessFlags = uiState.capabilitySummary.setupReadinessFlags || {};
   const setupBlockingReasons = uiState.capabilitySummary.setupBlockingReasons || [];
   const capabilityDeclareAllowed = uiState.capabilitySummary.declarationAllowed;
@@ -323,6 +331,15 @@ export default function App() {
         existing.delete(taskFamily);
       }
       return TASK_CAPABILITY_OPTIONS.filter((item) => existing.has(item));
+    });
+  }
+
+  function onToggleOpenAiModel(modelId) {
+    setSelectedOpenaiModelIds((current) => {
+      if (current.includes(modelId)) {
+        return current.filter((item) => item !== modelId);
+      }
+      return [...current, modelId];
     });
   }
 
@@ -440,14 +457,15 @@ export default function App() {
   }
 
   async function onSaveOpenAiPreference() {
-    if (!selectedOpenaiModelId || savingModelPreference) {
+    if (!selectedOpenaiModelIds.length || savingModelPreference) {
       return;
     }
     setSavingModelPreference(true);
     setError("");
     try {
       const payload = await apiPost("/api/providers/openai/preferences", {
-        default_model_id: selectedOpenaiModelId,
+        default_model_id: selectedOpenaiModelIds[0],
+        selected_model_ids: selectedOpenaiModelIds,
       });
       setProviderCredentials(payload);
       await refreshOpenAiModels();
@@ -461,20 +479,21 @@ export default function App() {
 
   async function onSaveManualPricing(event) {
     event.preventDefault();
-    if (!selectedOpenaiModelId || savingManualPricing) {
+    if (!selectedOpenaiModelIds.length || savingManualPricing) {
       return;
     }
     setSavingManualPricing(true);
     setError("");
     try {
       await apiPost("/api/providers/openai/pricing/manual", {
-        model_id: selectedOpenaiModelId,
-        display_name: selectedOpenaiModel?.display_name || selectedOpenaiModelId,
+        model_id: selectedOpenaiModelIds[0],
+        display_name: selectedOpenaiModel?.display_name || selectedOpenaiModelIds[0],
         input_price_per_1m: manualPricingInput === "" ? null : Number(manualPricingInput),
         output_price_per_1m: manualPricingOutput === "" ? null : Number(manualPricingOutput),
       });
       await apiPost("/api/providers/openai/preferences", {
-        default_model_id: selectedOpenaiModelId,
+        default_model_id: selectedOpenaiModelIds[0],
+        selected_model_ids: selectedOpenaiModelIds,
       });
       await refreshOpenAiModels();
     } catch (err) {
@@ -631,8 +650,10 @@ export default function App() {
                 <code>{openaiCredentialSummary.admin_key_hint || "not_saved"}</code>
                 <span>Saved Label</span>
                 <code>{openaiCredentialSummary.user_identifier || "none"}</code>
-                <span>Selected Model</span>
+                <span>Primary Model</span>
                 <code>{openaiCredentialSummary.default_model_id || "not_selected"}</code>
+                <span>Selected Models</span>
+                <code>{(openaiCredentialSummary.selected_model_ids || []).join(", ") || "none"}</code>
                 <span>Updated</span>
                 <code>{openaiCredentialSummary.updated_at || "never"}</code>
               </div>
@@ -676,9 +697,9 @@ export default function App() {
                   className="btn"
                   type="button"
                   onClick={onSaveOpenAiPreference}
-                  disabled={!selectedOpenaiModelId || savingModelPreference}
+                  disabled={!selectedOpenaiModelIds.length || savingModelPreference}
                 >
-                  {savingModelPreference ? "Saving..." : "Save Selected Model"}
+                  {savingModelPreference ? "Saving..." : "Save Selected Models"}
                 </button>
               </div>
               {latestOpenaiModels.length ? (
@@ -686,7 +707,7 @@ export default function App() {
                   {latestOpenaiModels.map((model) => (
                     <article
                       key={model.model_id}
-                      className={`model-card mini-model-card ${selectedOpenaiModelId === model.model_id ? "is-selected" : ""}`}
+                      className={`model-card mini-model-card ${selectedOpenaiModelIds.includes(model.model_id) ? "is-selected" : ""}`}
                     >
                       <div className="model-card-header">
                         <strong>{model.display_name || model.model_id}</strong>
@@ -704,11 +725,11 @@ export default function App() {
                       </div>
                       <div className="row">
                         <button
-                          className={`btn ${selectedOpenaiModelId === model.model_id ? "btn-primary" : ""}`}
+                          className={`btn ${selectedOpenaiModelIds.includes(model.model_id) ? "btn-primary" : ""}`}
                           type="button"
-                          onClick={() => setSelectedOpenaiModelId(model.model_id)}
+                          onClick={() => onToggleOpenAiModel(model.model_id)}
                         >
-                          {selectedOpenaiModelId === model.model_id ? "Selected" : "Use This Model"}
+                          {selectedOpenaiModelIds.includes(model.model_id) ? "Selected" : "Add Model"}
                         </button>
                       </div>
                     </article>
@@ -724,7 +745,7 @@ export default function App() {
                   <div className="model-section-header">
                     <h3>Manual Pricing</h3>
                     <span className="muted tiny">
-                      Selected: <code>{selectedOpenaiModel.model_id}</code>
+                      Primary: <code>{selectedOpenaiModel.model_id}</code>
                     </span>
                   </div>
                   <div className="state-grid">

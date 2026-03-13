@@ -93,7 +93,7 @@ curl -X POST http://127.0.0.1:9002/api/providers/openai/credentials \
   -d '{"api_key":"sk-...","admin_key":null,"user_identifier":"ops"}'
 curl -X POST http://127.0.0.1:9002/api/providers/openai/preferences \
   -H 'Content-Type: application/json' \
-  -d '{"default_model_id":"gpt-5.4-pro"}'
+  -d '{"default_model_id":"gpt-5.4-pro","selected_model_ids":["gpt-5.4-pro","gpt-5.4-mini"]}'
 curl http://127.0.0.1:9002/api/providers/openai/models/latest?limit=9
 curl http://127.0.0.1:9002/api/providers/openai/pricing/diagnostics
 curl -X POST http://127.0.0.1:9002/api/providers/openai/pricing/refresh \

@@ -84,13 +84,15 @@ class NodeControlApiTests(unittest.TestCase):
                 "admin_key": admin_key,
                 "user_identifier": user_identifier,
                 "default_model_id": self.payload.get("providers", {}).get("openai", {}).get("default_model_id"),
+                "selected_model_ids": self.payload.get("providers", {}).get("openai", {}).get("selected_model_ids", []),
                 "updated_at": "2026-03-13T00:00:00Z",
             }
             return self.payload
 
-        def update_openai_preferences(self, *, default_model_id=None):
+        def update_openai_preferences(self, *, default_model_id=None, selected_model_ids=None):
             self.payload.setdefault("providers", {}).setdefault("openai", {})
             self.payload["providers"]["openai"]["default_model_id"] = default_model_id
+            self.payload["providers"]["openai"]["selected_model_ids"] = list(selected_model_ids or ([] if default_model_id is None else [default_model_id]))
             self.payload["providers"]["openai"]["updated_at"] = "2026-03-13T00:00:00Z"
             return self.payload
 
@@ -358,8 +360,12 @@ class NodeControlApiTests(unittest.TestCase):
                 logger=logging.getLogger("node-control-test"),
                 provider_credentials_store=self._FakeProviderCredentialsStore(),
             )
-            payload = state.update_openai_preferences(default_model_id="gpt-5.4-pro")
+            payload = state.update_openai_preferences(
+                default_model_id="gpt-5.4-pro",
+                selected_model_ids=["gpt-5.4-pro", "gpt-5.4-mini"],
+            )
             self.assertEqual(payload["credentials"]["default_model_id"], "gpt-5.4-pro")
+            self.assertEqual(payload["credentials"]["selected_model_ids"], ["gpt-5.4-pro", "gpt-5.4-mini"])
 
     def test_capability_declaration_gate_requires_setup_prerequisites(self):
         with tempfile.TemporaryDirectory() as tmp:
