@@ -57,7 +57,7 @@ Config knobs:
 - `SYNTHIA_OPENAI_PRICING_CATALOG_PATH` (default: `data/openai_pricing_catalog.json`)
 - `SYNTHIA_OPENAI_PRICING_REFRESH_INTERVAL_SECONDS` (default: `86400`)
 - `SYNTHIA_OPENAI_PRICING_STALE_TOLERANCE_SECONDS` (default: `172800`)
-- `SYNTHIA_OPENAI_PRICING_SOURCE_URLS` (optional comma-separated OpenAI pricing URLs)
+- `SYNTHIA_OPENAI_PRICING_SOURCE_URLS` (optional comma-separated OpenAI pricing URLs; defaults include `https://developers.openai.com/api/docs/pricing`)
 - `OPENAI_API_KEY` (required for live OpenAI model discovery)
 - `SYNTHIA_OPENAI_BASE_URL` (optional OpenAI-compatible endpoint override)
 
@@ -110,6 +110,7 @@ UI behavior:
 - Selecting a model with unavailable pricing opens a per-model pricing popup so you can enter that model's price immediately or skip it.
 - `Review Selected Model Prices` walks through the currently selected models one by one so you can set different prices per model.
 - Manual pricing can be saved for the primary selected model or applied across all selected models from the popup.
+- In Capability Summary, selected models are marked with a green check.
 
 Task capability selection endpoints:
 

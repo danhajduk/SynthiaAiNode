@@ -1231,7 +1231,10 @@ export default function App() {
                   <div className="model-preview-list">
                     {latestOpenaiModels.map((model) => (
                       <div key={model.model_id} className="model-preview-row">
-                        <span>{model.display_name || model.model_id}</span>
+                        <span>
+                          {selectedOpenaiModelIds.includes(model.model_id) ? <span className="selected-model-check">✓ </span> : null}
+                          {model.display_name || model.model_id}
+                        </span>
                         <code>
                           {formatPrice(model.pricing?.input_per_1m_tokens)} in / {formatPrice(model.pricing?.output_per_1m_tokens)} out
                         </code>

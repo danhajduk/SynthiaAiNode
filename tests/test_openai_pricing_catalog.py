@@ -62,6 +62,29 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(entries[0].batch_input_price_per_1m, 0.125)
         self.assertEqual(entries[0].batch_output_price_per_1m, 1.0)
 
+    def test_parser_extracts_compact_docs_table_rows(self):
+        parser = OpenAIPricingPageParser()
+        html = """
+        <section>
+          <h2>Standard</h2>
+          <p>gpt-5.4-pro $3.00 $0.30 $15.00 --- --- ---</p>
+          <h2>Batch</h2>
+          <p>gpt-5.4-pro $1.50 $0.15 $7.50 --- --- ---</p>
+        </section>
+        """
+        entries = parser.parse(
+            html=html,
+            source_url="https://developers.openai.com/api/docs/pricing",
+            scraped_at="2026-03-13T00:00:00Z",
+        )
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0].model_id, "gpt-5.4-pro")
+        self.assertEqual(entries[0].input_price_per_1m, 3.0)
+        self.assertEqual(entries[0].cached_input_price_per_1m, 0.3)
+        self.assertEqual(entries[0].output_price_per_1m, 15.0)
+        self.assertEqual(entries[0].batch_input_price_per_1m, 1.5)
+        self.assertEqual(entries[0].batch_output_price_per_1m, 7.5)
+
     async def test_refresh_persists_snapshot_and_cost_lookup(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = OpenAIPricingCatalogService(

@@ -92,6 +92,11 @@
   font-size: 1rem;
 }
 
+.selected-model-check {
+  color: #1f9d55;
+  font-weight: 700;
+}
+
 .model-section-header {
   display: flex;
   justify-content: space-between;

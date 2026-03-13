@@ -31,7 +31,7 @@ Backend runtime:
 - `SYNTHIA_OPENAI_PRICING_CATALOG_PATH` default `data/openai_pricing_catalog.json`
 - `SYNTHIA_OPENAI_PRICING_REFRESH_INTERVAL_SECONDS` default `86400`
 - `SYNTHIA_OPENAI_PRICING_STALE_TOLERANCE_SECONDS` default `172800`
-- `SYNTHIA_OPENAI_PRICING_SOURCE_URLS` optional comma-separated `https://openai.com/...` URLs
+- `SYNTHIA_OPENAI_PRICING_SOURCE_URLS` optional comma-separated OpenAI pricing URLs, including `https://developers.openai.com/...`
 - `SYNTHIA_OPENAI_PRICING_FETCH_TIMEOUT_SECONDS` default `20`
 - `SYNTHIA_OPENAI_PRICING_FETCH_RETRY_COUNT` default `2`
 

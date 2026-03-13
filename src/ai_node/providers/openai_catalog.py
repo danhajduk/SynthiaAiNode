@@ -13,6 +13,7 @@ OPENAI_PRICING_SCHEMA_VERSION = "1.0"
 OPENAI_PRICING_PARSER_VERSION = "1.0"
 DEFAULT_OPENAI_PRICING_CATALOG_PATH = "data/openai_pricing_catalog.json"
 DEFAULT_OPENAI_PRICING_SOURCE_URLS = [
+    "https://developers.openai.com/api/docs/pricing",
     "https://openai.com/api/pricing/",
     "https://openai.com/pricing",
 ]
@@ -114,7 +115,11 @@ def _normalize_url_list(raw_value: object) -> list[str]:
     urls = []
     for value in values:
         normalized = _normalize_string(value)
-        if normalized.startswith("https://openai.com/") or normalized.startswith("https://platform.openai.com/"):
+        if (
+            normalized.startswith("https://openai.com/")
+            or normalized.startswith("https://platform.openai.com/")
+            or normalized.startswith("https://developers.openai.com/")
+        ):
             urls.append(normalized)
     return urls
 
@@ -293,6 +298,50 @@ def _looks_like_model_heading(text: str) -> bool:
     return normalized.startswith(_MODEL_PREFIXES)
 
 
+def _parse_compact_price_tokens(text: str) -> list[float]:
+    normalized = _normalize_string(text).replace(",", "")
+    return [float(match) for match in re.findall(r"\$([0-9]+(?:\.[0-9]+)?)", normalized)]
+
+
+def _parse_docs_pricing_row(*, block: str, source_url: str, scraped_at: str, pricing_mode: str | None) -> OpenAIPricingEntry | None:
+    normalized = _normalize_string(block).replace(" ", "")
+    if not normalized or "$" not in normalized:
+        return None
+    model_match = re.match(r"^([a-z0-9][a-z0-9.-]*)", normalized.lower())
+    if model_match is None:
+        return None
+    model_id = model_match.group(1)
+    if not is_regular_openai_model_id(model_id):
+        return None
+    prices = _parse_compact_price_tokens(normalized)
+    if not prices:
+        return None
+    payload = {
+        "model_id": model_id,
+        "display_name": model_id,
+        "source_url": source_url,
+        "scraped_at": scraped_at,
+        "pricing_status": "ok",
+        "notes": ["docs_compact_table"],
+    }
+    if pricing_mode == "batch":
+        payload["batch_input_price_per_1m"] = prices[0]
+        if len(prices) >= 3:
+            payload["batch_output_price_per_1m"] = prices[2]
+        elif len(prices) >= 2:
+            payload["batch_output_price_per_1m"] = prices[1]
+    else:
+        payload["input_price_per_1m"] = prices[0]
+        if len(prices) >= 2:
+            payload["cached_input_price_per_1m"] = prices[1]
+        if len(prices) >= 3:
+            payload["output_price_per_1m"] = prices[2]
+        elif len(prices) >= 2:
+            payload["output_price_per_1m"] = prices[1]
+    entry = OpenAIPricingEntry.model_validate(payload)
+    return entry if _price_fields_present(entry) else None
+
+
 class OpenAIPricingPageParser:
     def parse(self, *, html: str, source_url: str, scraped_at: str | None = None) -> list[OpenAIPricingEntry]:
         parser = _PricingHTMLBlockParser()
@@ -303,7 +352,45 @@ class OpenAIPricingPageParser:
         entries: dict[str, dict] = {}
         current_model_id = None
         current_display_name = None
+        pricing_mode = None
         for index, block in enumerate(blocks):
+            normalized_block = _normalize_string(block).lower()
+            if normalized_block in {"standard", "batch"}:
+                pricing_mode = normalized_block
+                continue
+            docs_row = _parse_docs_pricing_row(
+                block=block,
+                source_url=source_url,
+                scraped_at=now,
+                pricing_mode=pricing_mode,
+            )
+            if docs_row is not None:
+                existing = entries.get(docs_row.model_id)
+                if existing is None:
+                    entries[docs_row.model_id] = docs_row.model_dump()
+                else:
+                    merged = OpenAIPricingEntry.model_validate(existing).model_copy(
+                        update={
+                            "input_price_per_1m": docs_row.input_price_per_1m
+                            if docs_row.input_price_per_1m is not None
+                            else existing.get("input_price_per_1m"),
+                            "cached_input_price_per_1m": docs_row.cached_input_price_per_1m
+                            if docs_row.cached_input_price_per_1m is not None
+                            else existing.get("cached_input_price_per_1m"),
+                            "output_price_per_1m": docs_row.output_price_per_1m
+                            if docs_row.output_price_per_1m is not None
+                            else existing.get("output_price_per_1m"),
+                            "batch_input_price_per_1m": docs_row.batch_input_price_per_1m
+                            if docs_row.batch_input_price_per_1m is not None
+                            else existing.get("batch_input_price_per_1m"),
+                            "batch_output_price_per_1m": docs_row.batch_output_price_per_1m
+                            if docs_row.batch_output_price_per_1m is not None
+                            else existing.get("batch_output_price_per_1m"),
+                            "notes": sorted(set(list(existing.get("notes") or []) + list(docs_row.notes))),
+                        }
+                    )
+                    entries[docs_row.model_id] = merged.model_dump()
+                continue
             if _looks_like_model_heading(block):
                 current_display_name = block
                 current_model_id = normalize_openai_display_name(block)
