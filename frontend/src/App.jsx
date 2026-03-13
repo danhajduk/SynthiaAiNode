@@ -255,22 +255,24 @@ export default function App() {
   }, [selectedOpenaiModelIds, latestOpenaiModels]);
 
   useEffect(() => {
-    if (!pricingReviewModel) {
+    const reviewModelId = pricingReviewModelIds[pricingReviewIndex] || "";
+    const reviewModel = latestOpenaiModels.find((model) => model.model_id === reviewModelId);
+    if (!reviewModel) {
       setPopupPricingInput("");
       setPopupPricingOutput("");
       return;
     }
     setPopupPricingInput(
-      typeof pricingReviewModel.pricing?.input_per_1m_tokens === "number"
-        ? String(pricingReviewModel.pricing.input_per_1m_tokens)
+      typeof reviewModel.pricing?.input_per_1m_tokens === "number"
+        ? String(reviewModel.pricing.input_per_1m_tokens)
         : ""
     );
     setPopupPricingOutput(
-      typeof pricingReviewModel.pricing?.output_per_1m_tokens === "number"
-        ? String(pricingReviewModel.pricing.output_per_1m_tokens)
+      typeof reviewModel.pricing?.output_per_1m_tokens === "number"
+        ? String(reviewModel.pricing.output_per_1m_tokens)
         : ""
     );
-  }, [pricingReviewModel]);
+  }, [pricingReviewModelIds, pricingReviewIndex, latestOpenaiModels]);
 
   async function onSubmit(event) {
     event.preventDefault();
