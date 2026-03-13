@@ -39,21 +39,27 @@ class NodeControlApiTests(unittest.TestCase):
         def save(self, payload):
             self.payload = payload
 
-    class _FakeTaskCapabilitySelectionStore:
+    class _FakeProviderCredentialsStore:
         def __init__(self):
-            self.payload = {
-                "schema_version": "1.0",
-                "selected_task_families": [
-                    "task.classification.text",
-                    "task.summarization.text",
-                ],
-            }
+            self.payload = {"schema_version": "1.0", "providers": {}}
 
-        def load_or_create(self, **_kwargs):
+        def load_or_create(self):
             return self.payload
 
         def save(self, payload):
             self.payload = payload
+
+        def load(self):
+            return self.payload
+
+        def upsert_openai_credentials(self, *, api_key: str, admin_key=None, user_identifier=None):
+            self.payload["providers"]["openai"] = {
+                "api_key": api_key,
+                "admin_key": admin_key,
+                "user_identifier": user_identifier,
+                "updated_at": "2026-03-13T00:00:00Z",
+            }
+            return self.payload
 
     class _FakeTaskCapabilitySelectionStore:
         def __init__(self):
@@ -111,6 +117,24 @@ class NodeControlApiTests(unittest.TestCase):
     class _FakeCapabilityRunner:
         async def submit_once(self):
             return {"status": "accepted"}
+
+        def status_payload(self):
+            return {
+                "provider_capability_report": {
+                    "providers": [
+                        {
+                            "provider": "openai",
+                            "models": [
+                                {
+                                    "id": "gpt-5",
+                                    "created": 1741046400,
+                                    "pricing": {"input_per_1m_tokens": 1.25, "output_per_1m_tokens": 10.0},
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
 
     def test_status_is_unconfigured_without_bootstrap_config(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -245,6 +269,39 @@ class NodeControlApiTests(unittest.TestCase):
                 payload["config"]["selected_task_families"],
                 ["task.classification.text", "task.generation.image"],
             )
+
+    def test_update_openai_credentials_returns_redacted_summary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
+            state = NodeControlState(
+                lifecycle=lifecycle,
+                config_path=str(Path(tmp) / "bootstrap_config.json"),
+                logger=logging.getLogger("node-control-test"),
+                provider_credentials_store=self._FakeProviderCredentialsStore(),
+            )
+            payload = state.update_openai_credentials(
+                api_key="test-api-key-1234",
+                admin_key="test-admin-key-7890",
+                user_identifier="ops-user",
+            )
+            self.assertTrue(payload["configured"])
+            self.assertTrue(payload["credentials"]["has_api_key"])
+            self.assertTrue(payload["credentials"]["has_admin_key"])
+            self.assertTrue(payload["credentials"]["api_key_hint"].endswith("1234"))
+            self.assertEqual(payload["credentials"]["user_identifier"], "ops-user")
+
+    def test_latest_provider_models_payload_returns_latest_three(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
+            state = NodeControlState(
+                lifecycle=lifecycle,
+                config_path=str(Path(tmp) / "bootstrap_config.json"),
+                logger=logging.getLogger("node-control-test"),
+                capability_runner=self._FakeCapabilityRunner(),
+            )
+            payload = state.latest_provider_models_payload(provider_id="openai", limit=3)
+            self.assertEqual(payload["provider_id"], "openai")
+            self.assertEqual(payload["models"][0]["model_id"], "gpt-5")
 
     def test_capability_declaration_gate_requires_setup_prerequisites(self):
         with tempfile.TemporaryDirectory() as tmp:

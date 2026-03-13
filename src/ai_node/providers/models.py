@@ -41,6 +41,7 @@ class UsageMetrics(BaseModel):
 class ModelCapability(BaseModel):
     model_id: str
     display_name: str
+    created: int | None = None
     input_modalities: list[str] = Field(default_factory=lambda: ["text"])
     output_modalities: list[str] = Field(default_factory=lambda: ["text"])
     context_window: int | None = None

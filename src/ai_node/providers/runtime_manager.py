@@ -19,11 +19,16 @@ class ProviderRuntimeManager:
         *,
         logger,
         provider_selection_store=None,
+        provider_credentials_store=None,
         registry_path: str = "data/provider_registry.json",
         metrics_path: str = "data/provider_metrics.json",
     ) -> None:
         self._logger = logger
-        self._loader = ProviderConfigLoader(logger=logger, provider_selection_store=provider_selection_store)
+        self._loader = ProviderConfigLoader(
+            logger=logger,
+            provider_selection_store=provider_selection_store,
+            provider_credentials_store=provider_credentials_store,
+        )
         self._registry = ProviderRegistry()
         self._registry_path = registry_path
         self._metrics = ProviderMetricsCollector(metrics_path=metrics_path, logger=logger)
@@ -101,6 +106,7 @@ class ProviderRuntimeManager:
                     {
                         "model_id": model_id,
                         "display_name": model.get("display_name"),
+                        "created": model.get("created"),
                         "context_window": model.get("context_window"),
                         "max_output_tokens": model.get("max_output_tokens"),
                         "supports_streaming": bool(model.get("supports_streaming")),
@@ -145,6 +151,20 @@ class ProviderRuntimeManager:
         return {
             "generated_at": _iso_now(),
             "providers": providers,
+        }
+
+    def latest_models_payload(self, *, provider_id: str, limit: int = 3) -> dict:
+        models = self._registry.list_models_by_provider(provider_id)
+        sorted_models = sorted(
+            [model.model_dump() for model in models],
+            key=lambda item: (int(item.get("created") or 0), str(item.get("model_id") or "")),
+            reverse=True,
+        )
+        return {
+            "provider_id": str(provider_id or "").strip(),
+            "models": sorted_models[: max(int(limit), 0)],
+            "source": "provider_registry",
+            "generated_at": _iso_now(),
         }
 
     def providers_snapshot(self) -> dict:

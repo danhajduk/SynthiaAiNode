@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from ai_node.capabilities.task_families import CANONICAL_TASK_FAMILIES
 from ai_node.config.bootstrap_config import create_bootstrap_config
 from ai_node.execution.gateway import ExecutionGateway
+from ai_node.config.provider_credentials_config import summarize_provider_credentials
 from ai_node.prompts.registration import apply_probation_transition, create_prompt_service_registration
 from ai_node.config.task_capability_selection_config import create_task_capability_selection_config
 from ai_node.diagnostics.phase2_logger import Phase2DiagnosticsLogger
@@ -35,6 +36,7 @@ class NodeControlState:
         capability_runner=None,
         node_identity_store=None,
         provider_selection_store=None,
+        provider_credentials_store=None,
         task_capability_selection_store=None,
         trust_state_store=None,
         prompt_service_state_store=None,
@@ -53,6 +55,7 @@ class NodeControlState:
         self._capability_runner = capability_runner
         self._node_identity_store = node_identity_store
         self._provider_selection_store = provider_selection_store
+        self._provider_credentials_store = provider_credentials_store
         self._task_capability_selection_store = task_capability_selection_store
         self._trust_state_store = trust_state_store
         self._prompt_service_state_store = prompt_service_state_store
@@ -66,12 +69,14 @@ class NodeControlState:
         self._phase2_diag = Phase2DiagnosticsLogger(logger)
         self._bootstrap_config = None
         self._provider_selection_config = None
+        self._provider_credentials_summary = None
         self._task_capability_selection_config = None
         self._prompt_service_state = None
         self._node_id = None
         self._identity_state = "unknown"
         self._load_identity()
         self._load_provider_selection_config()
+        self._load_provider_credentials_summary()
         self._load_task_capability_selection_config()
         self._load_prompt_service_state()
         self._load_existing_config()
@@ -242,6 +247,12 @@ class NodeControlState:
             return
         self._task_capability_selection_config = self._task_capability_selection_store.load_or_create()
 
+    def _load_provider_credentials_summary(self) -> None:
+        if self._provider_credentials_store is None or not hasattr(self._provider_credentials_store, "load_or_create"):
+            self._provider_credentials_summary = None
+            return
+        self._provider_credentials_summary = summarize_provider_credentials(self._provider_credentials_store.load_or_create())
+
     def _load_prompt_service_state(self) -> None:
         if self._prompt_service_state_store is None or not hasattr(self._prompt_service_state_store, "load_or_create"):
             self._prompt_service_state = None
@@ -283,6 +294,7 @@ class NodeControlState:
             "startup_mode": self._startup_mode,
             "trusted_runtime_context": self._trusted_runtime_context,
             "provider_selection_configured": self._provider_selection_config is not None,
+            "provider_credentials": self.provider_credentials_payload(provider_id="openai"),
             "task_capability_selection_configured": self._task_capability_selection_config is not None,
             "capability_setup": capability_setup_contract,
             "capability_declaration": capability_context,
@@ -299,6 +311,31 @@ class NodeControlState:
         if self._service_manager is None or not hasattr(self._service_manager, "get_status"):
             return {"configured": False, "services": {"backend": "unknown", "frontend": "unknown", "node": "unknown"}}
         return {"configured": True, "services": self._service_manager.get_status()}
+
+    def provider_credentials_payload(self, *, provider_id: str) -> dict:
+        summary = (
+            self._provider_credentials_summary
+            if isinstance(self._provider_credentials_summary, dict)
+            else summarize_provider_credentials(None)
+        )
+        provider_name = str(provider_id or "").strip().lower()
+        providers = summary.get("providers") if isinstance(summary.get("providers"), dict) else {}
+        credentials = providers.get(provider_name) if isinstance(providers, dict) else None
+        return {
+            "provider": provider_name,
+            "configured": bool(credentials and credentials.get("configured")),
+            "credentials": credentials
+            if isinstance(credentials, dict)
+            else {
+                "configured": False,
+                "has_api_key": False,
+                "has_admin_key": False,
+                "api_key_hint": None,
+                "admin_key_hint": None,
+                "user_identifier": None,
+                "updated_at": None,
+            },
+        }
 
     def task_capability_selection_payload(self) -> dict:
         if self._task_capability_selection_config is None:
@@ -455,6 +492,115 @@ class NodeControlState:
         self._task_capability_selection_store.save(payload)
         self._task_capability_selection_config = payload
         return self.task_capability_selection_payload()
+
+    def update_openai_credentials(
+        self,
+        *,
+        api_key: str,
+        admin_key: str | None = None,
+        user_identifier: str | None = None,
+    ) -> dict:
+        if self._provider_credentials_store is None or not hasattr(self._provider_credentials_store, "upsert_openai_credentials"):
+            raise ValueError("provider credentials store is not configured")
+        payload = self._provider_credentials_store.upsert_openai_credentials(
+            api_key=api_key,
+            admin_key=admin_key,
+            user_identifier=user_identifier,
+        )
+        self._provider_credentials_summary = summarize_provider_credentials(payload)
+        self._phase2_diag.provider_selection(
+            {
+                "source": "openai_credentials_saved",
+                "provider": "openai",
+                "has_api_key": True,
+                "has_admin_key": bool(admin_key),
+                "user_identifier": bool(str(user_identifier or "").strip()),
+            }
+        )
+        return self.provider_credentials_payload(provider_id="openai")
+
+    def latest_provider_models_payload(self, *, provider_id: str, limit: int = 3) -> dict:
+        normalized_provider = str(provider_id or "").strip().lower()
+        if self._provider_runtime_manager is not None and hasattr(self._provider_runtime_manager, "latest_models_payload"):
+            payload = self._provider_runtime_manager.latest_models_payload(provider_id=normalized_provider, limit=limit)
+            return self._normalize_latest_models_payload(payload=payload, provider_id=normalized_provider, limit=limit)
+        capability_payload = (
+            self._capability_runner.status_payload()
+            if self._capability_runner is not None and hasattr(self._capability_runner, "status_payload")
+            else {}
+        )
+        report = capability_payload.get("provider_capability_report") if isinstance(capability_payload, dict) else None
+        return self._normalize_latest_models_payload(
+            payload={"provider_id": normalized_provider, "models": self._extract_report_models(report, normalized_provider)},
+            provider_id=normalized_provider,
+            limit=limit,
+        )
+
+    @staticmethod
+    def _extract_report_models(report: dict | None, provider_id: str) -> list[dict]:
+        if not isinstance(report, dict):
+            return []
+        providers = report.get("providers")
+        if not isinstance(providers, list):
+            return []
+        for provider_payload in providers:
+            if not isinstance(provider_payload, dict):
+                continue
+            provider_name = str(provider_payload.get("provider_id") or provider_payload.get("provider") or "").strip().lower()
+            if provider_name != provider_id:
+                continue
+            models = provider_payload.get("models")
+            return models if isinstance(models, list) else []
+        return []
+
+    @staticmethod
+    def _normalize_latest_models_payload(*, payload: dict | None, provider_id: str, limit: int) -> dict:
+        raw_models = payload.get("models") if isinstance(payload, dict) and isinstance(payload.get("models"), list) else []
+        normalized = []
+        for item in raw_models:
+            if not isinstance(item, dict):
+                continue
+            model_id = str(item.get("model_id") or item.get("id") or "").strip()
+            if not model_id:
+                continue
+            pricing = item.get("pricing") if isinstance(item.get("pricing"), dict) else {}
+            pricing_input = item.get("pricing_input")
+            pricing_output = item.get("pricing_output")
+            normalized.append(
+                {
+                    "model_id": model_id,
+                    "display_name": str(item.get("display_name") or model_id).strip(),
+                    "created": item.get("created") if isinstance(item.get("created"), int) else None,
+                    "status": str(item.get("status") or "available").strip(),
+                    "pricing": {
+                        "currency": str(pricing.get("currency") or "usd").strip().lower(),
+                        "input_per_1m_tokens": (
+                            pricing.get("input_per_1m_tokens")
+                            if isinstance(pricing.get("input_per_1m_tokens"), (int, float))
+                            else pricing_input
+                        ),
+                        "output_per_1m_tokens": (
+                            pricing.get("output_per_1m_tokens")
+                            if isinstance(pricing.get("output_per_1m_tokens"), (int, float))
+                            else pricing_output
+                        ),
+                    },
+                }
+            )
+        normalized.sort(
+            key=lambda item: (int(item.get("created") or 0), str(item.get("model_id") or "")),
+            reverse=True,
+        )
+        return {
+            "provider_id": provider_id,
+            "models": normalized[: max(int(limit), 0)],
+            "source": str(payload.get("source") or "provider_capability_report").strip()
+            if isinstance(payload, dict)
+            else "provider_capability_report",
+            "generated_at": str(payload.get("generated_at") or datetime.now(timezone.utc).isoformat()).strip()
+            if isinstance(payload, dict)
+            else datetime.now(timezone.utc).isoformat(),
+        }
 
     async def submit_capability_declaration(self) -> dict:
         if self._capability_runner is None or not hasattr(self._capability_runner, "submit_once"):
@@ -637,6 +783,12 @@ class ProviderSelectionRequest(BaseModel):
     openai_enabled: bool
 
 
+class OpenAICredentialsRequest(BaseModel):
+    api_key: str
+    admin_key: str | None = None
+    user_identifier: str | None = None
+
+
 class TaskCapabilitySelectionRequest(BaseModel):
     selected_task_families: list[str]
 
@@ -697,6 +849,8 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
                 "/api/onboarding/initiate",
                 "/api/onboarding/restart",
                 "/api/providers/config",
+                "/api/providers/openai/credentials",
+                "/api/providers/openai/models/latest",
                 "/api/capabilities/config",
                 "/api/capabilities/declare",
                 "/api/governance/status",
@@ -747,6 +901,25 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
             return state.update_provider_selection(openai_enabled=payload.openai_enabled)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/providers/openai/credentials")
+    def get_openai_credentials():
+        return state.provider_credentials_payload(provider_id="openai")
+
+    @app.post("/api/providers/openai/credentials")
+    def post_openai_credentials(payload: OpenAICredentialsRequest):
+        try:
+            return state.update_openai_credentials(
+                api_key=payload.api_key,
+                admin_key=payload.admin_key,
+                user_identifier=payload.user_identifier,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/providers/openai/models/latest")
+    def get_openai_latest_models(limit: int = 3):
+        return state.latest_provider_models_payload(provider_id="openai", limit=limit)
 
     @app.get("/api/capabilities/config")
     def get_capabilities_config():

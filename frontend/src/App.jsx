@@ -11,6 +11,8 @@ const DIAGNOSTIC_ENDPOINTS = [
   "/api/node/status",
   "/api/governance/status",
   "/api/providers/config",
+  "/api/providers/openai/credentials",
+  "/api/providers/openai/models/latest",
   "/api/capabilities/config",
   "/api/services/status",
 ];
@@ -41,6 +43,20 @@ function ThemeToggle() {
   );
 }
 
+function formatPrice(value) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "unavailable";
+  }
+  return `$${value.toFixed(value >= 1 ? 2 : 3)}/1M`;
+}
+
+function formatCreatedAt(value) {
+  if (typeof value !== "number" || value <= 0) {
+    return "unknown";
+  }
+  return new Date(value * 1000).toISOString().slice(0, 10);
+}
+
 export default function App() {
   const [backendStatus, setBackendStatus] = useState("loading");
   const [pendingApprovalUrl, setPendingApprovalUrl] = useState("");
@@ -59,6 +75,14 @@ export default function App() {
   const [capabilityPopupDismissed, setCapabilityPopupDismissed] = useState(false);
   const [restartingServiceTarget, setRestartingServiceTarget] = useState("");
   const [copiedDiagnostics, setCopiedDiagnostics] = useState(false);
+  const [providerCredentials, setProviderCredentials] = useState(null);
+  const [latestOpenaiModels, setLatestOpenaiModels] = useState([]);
+  const [showProviderCredentialsPopup, setShowProviderCredentialsPopup] = useState(false);
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [openaiAdminKey, setOpenaiAdminKey] = useState("");
+  const [openaiUserIdentifier, setOpenaiUserIdentifier] = useState("");
+  const [savingCredentials, setSavingCredentials] = useState(false);
+  const [refreshingLatestModels, setRefreshingLatestModels] = useState(false);
   const [uiState, setUiState] = useState(() =>
     buildDashboardUiState({
       nodeStatus: null,
@@ -71,10 +95,20 @@ export default function App() {
 
   async function loadStatus() {
     const lastUpdatedAt = new Date().toISOString();
-    const [nodeResult, governanceResult, providerResult, capabilityConfigResult, servicesResult] = await Promise.allSettled([
+    const [
+      nodeResult,
+      governanceResult,
+      providerResult,
+      providerCredentialsResult,
+      latestModelsResult,
+      capabilityConfigResult,
+      servicesResult,
+    ] = await Promise.allSettled([
       apiGet("/api/node/status"),
       apiGet("/api/governance/status"),
       apiGet("/api/providers/config"),
+      apiGet("/api/providers/openai/credentials"),
+      apiGet("/api/providers/openai/models/latest?limit=3"),
       apiGet("/api/capabilities/config"),
       apiGet("/api/services/status"),
     ]);
@@ -101,6 +135,8 @@ export default function App() {
     const payload = nodeResult.value || {};
     const governancePayload = governanceResult.status === "fulfilled" ? governanceResult.value : null;
     const providerPayload = providerResult.status === "fulfilled" ? providerResult.value : null;
+    const providerCredentialsPayload = providerCredentialsResult.status === "fulfilled" ? providerCredentialsResult.value : null;
+    const latestModelsPayload = latestModelsResult.status === "fulfilled" ? latestModelsResult.value : null;
     const capabilityConfigPayload = capabilityConfigResult.status === "fulfilled" ? capabilityConfigResult.value : null;
     const servicePayload = servicesResult.status === "fulfilled" ? servicesResult.value : null;
     const partialFailures = [];
@@ -109,6 +145,12 @@ export default function App() {
     }
     if (providerResult.status !== "fulfilled") {
       partialFailures.push("provider_config_unavailable");
+    }
+    if (providerCredentialsResult.status !== "fulfilled") {
+      partialFailures.push("provider_credentials_unavailable");
+    }
+    if (latestModelsResult.status !== "fulfilled") {
+      partialFailures.push("provider_models_unavailable");
     }
     if (capabilityConfigResult.status !== "fulfilled") {
       partialFailures.push("capability_config_unavailable");
@@ -120,7 +162,12 @@ export default function App() {
     setBackendStatus(payload.status || "unknown");
     setPendingApprovalUrl(payload.pending_approval_url || "");
     setNodeId(payload.node_id || "");
+    setProviderCredentials(providerCredentialsPayload);
+    setLatestOpenaiModels(Array.isArray(latestModelsPayload?.models) ? latestModelsPayload.models : []);
     setError("");
+    if (!showProviderCredentialsPopup && providerCredentialsPayload?.credentials?.user_identifier) {
+      setOpenaiUserIdentifier(providerCredentialsPayload.credentials.user_identifier);
+    }
     if ((payload.status || "unknown") === "capability_setup_pending" && providerPayload) {
       const enabledProviders = providerPayload?.config?.providers?.enabled || [];
       setOpenaiEnabled(enabledProviders.includes("openai"));
@@ -168,8 +215,8 @@ export default function App() {
     setError("");
     try {
       const payload = await apiPost("/api/onboarding/initiate", {
-          mqtt_host: mqttHost,
-          node_name: nodeName,
+        mqtt_host: mqttHost,
+        node_name: nodeName,
       });
       setBackendStatus(payload.status || "bootstrap_connecting");
       setNodeId(payload.node_id || nodeId);
@@ -200,6 +247,10 @@ export default function App() {
   const isUnconfigured = backendStatus === "unconfigured";
   const isPendingApproval = backendStatus === "pending_approval";
   const isCapabilitySetupPending = backendStatus === "capability_setup_pending";
+  const openaiCredentialSummary = providerCredentials?.credentials || {};
+  const hasCapabilityRegistration = Boolean(uiState.capabilitySummary.capabilityDeclarationTimestamp);
+  const canManageOpenAiCredentials =
+    hasCapabilityRegistration && uiState.capabilitySummary.enabledProviders.includes("openai");
   const setupReadinessFlags = uiState.capabilitySummary.setupReadinessFlags || {};
   const setupBlockingReasons = uiState.capabilitySummary.setupBlockingReasons || [];
   const capabilityDeclareAllowed = uiState.capabilitySummary.declarationAllowed;
@@ -316,6 +367,44 @@ export default function App() {
     }
   }
 
+  async function refreshOpenAiModels() {
+    setRefreshingLatestModels(true);
+    setError("");
+    try {
+      await apiPost("/api/capabilities/providers/refresh", { force_refresh: true });
+      const latestModelsPayload = await apiGet("/api/providers/openai/models/latest?limit=3");
+      setLatestOpenaiModels(Array.isArray(latestModelsPayload?.models) ? latestModelsPayload.models : []);
+      await loadStatus();
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setRefreshingLatestModels(false);
+    }
+  }
+
+  async function onSaveOpenAiCredentials(event) {
+    event.preventDefault();
+    setSavingCredentials(true);
+    setError("");
+    try {
+      const credentialsPayload = await apiPost("/api/providers/openai/credentials", {
+        api_key: openaiApiKey,
+        admin_key: openaiAdminKey || null,
+        user_identifier: openaiUserIdentifier || null,
+      });
+      setProviderCredentials(credentialsPayload);
+      setOpenaiApiKey("");
+      setOpenaiAdminKey("");
+      await refreshOpenAiModels();
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setSavingCredentials(false);
+    }
+  }
+
   async function onCopyDiagnostics() {
     const payload = {
       lifecycle_state: uiState.lifecycle.current,
@@ -416,6 +505,108 @@ export default function App() {
                 <span>Runtime Context</span>
                 <StatusBadge value={setupReadinessFlags.core_runtime_context_valid ? "ready" : "blocked"} />
               </div>
+            </div>
+          </article>
+        </section>
+      ) : null}
+      {showProviderCredentialsPopup ? (
+        <section className="modal-overlay" role="dialog" aria-modal="true" aria-label="OpenAI credentials">
+          <article className="card modal-card">
+            <CardHeader
+              title="OpenAI Credentials"
+              subtitle="Save local provider credentials, then refresh discovery to capture the latest three models."
+            />
+            <form className="setup-form" onSubmit={onSaveOpenAiCredentials}>
+              <label>
+                OpenAI API Key
+                <input
+                  type="password"
+                  value={openaiApiKey}
+                  onChange={(event) => setOpenaiApiKey(event.target.value)}
+                  placeholder="sk-..."
+                  required
+                />
+              </label>
+              <label>
+                Admin Token
+                <input
+                  type="password"
+                  value={openaiAdminKey}
+                  onChange={(event) => setOpenaiAdminKey(event.target.value)}
+                  placeholder="Optional reserved token"
+                />
+              </label>
+              <label>
+                User / Org Label
+                <input
+                  value={openaiUserIdentifier}
+                  onChange={(event) => setOpenaiUserIdentifier(event.target.value)}
+                  placeholder="Optional operator label"
+                />
+              </label>
+              <div className="state-grid">
+                <span>Saved API Key</span>
+                <code>{openaiCredentialSummary.api_key_hint || "not_saved"}</code>
+                <span>Saved Admin Token</span>
+                <code>{openaiCredentialSummary.admin_key_hint || "not_saved"}</code>
+                <span>Saved Label</span>
+                <code>{openaiCredentialSummary.user_identifier || "none"}</code>
+                <span>Updated</span>
+                <code>{openaiCredentialSummary.updated_at || "never"}</code>
+              </div>
+              <div className="row">
+                <button className="btn btn-primary" type="submit" disabled={savingCredentials || refreshingLatestModels}>
+                  {savingCredentials ? "Saving..." : "Save Credentials"}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={refreshOpenAiModels}
+                  disabled={refreshingLatestModels || !openaiCredentialSummary.has_api_key}
+                >
+                  {refreshingLatestModels ? "Refreshing..." : "Refresh Models"}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => {
+                    setShowProviderCredentialsPopup(false);
+                    setOpenaiApiKey("");
+                    setOpenaiAdminKey("");
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </form>
+            <div className="modal-capability-data">
+              <h3>Latest OpenAI Models</h3>
+              {latestOpenaiModels.length ? (
+                <div className="model-list">
+                  {latestOpenaiModels.map((model) => (
+                    <article key={model.model_id} className="model-card">
+                      <div className="model-card-header">
+                        <strong>{model.display_name || model.model_id}</strong>
+                        <StatusBadge value={model.status || "available"} />
+                      </div>
+                      <div className="state-grid compact-grid">
+                        <span>Model ID</span>
+                        <code>{model.model_id}</code>
+                        <span>Created</span>
+                        <code>{formatCreatedAt(model.created)}</code>
+                        <span>Input Price</span>
+                        <code>{formatPrice(model.pricing?.input_per_1m_tokens)}</code>
+                        <span>Output Price</span>
+                        <code>{formatPrice(model.pricing?.output_per_1m_tokens)}</code>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted tiny">
+                  No OpenAI models discovered yet. Save credentials and run a refresh to populate this list.
+                </p>
+              )}
             </div>
           </article>
         </section>
@@ -609,6 +800,28 @@ export default function App() {
           ) : null}
           <article className="card">
             <CardHeader title="Capability Summary" subtitle="Phase 2 declaration readiness snapshot" />
+            <div className="row capability-actions">
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={!canManageOpenAiCredentials}
+                onClick={() => {
+                  setShowProviderCredentialsPopup(true);
+                  setOpenaiApiKey("");
+                  setOpenaiAdminKey("");
+                  setOpenaiUserIdentifier(providerCredentials?.credentials?.user_identifier || "");
+                }}
+              >
+                OpenAI Credentials
+              </button>
+              {!canManageOpenAiCredentials ? (
+                <span className="muted tiny">Available after capability registration completes with OpenAI enabled.</span>
+              ) : (
+                <span className="muted tiny">
+                  Saved key: <code>{openaiCredentialSummary.api_key_hint || "not_saved"}</code>
+                </span>
+              )}
+            </div>
             <div className="state-grid">
               <span>Task Families</span>
               <code>{uiState.capabilitySummary.declaredTaskFamilies.join(", ") || "not_declared"}</code>
@@ -621,6 +834,25 @@ export default function App() {
               <span>Provider Expansion</span>
               <code>openai (active), local/future (placeholder)</code>
             </div>
+            {canManageOpenAiCredentials ? (
+              <div className="model-preview">
+                <h3>Latest 3 OpenAI Models</h3>
+                {latestOpenaiModels.length ? (
+                  <div className="model-preview-list">
+                    {latestOpenaiModels.map((model) => (
+                      <div key={model.model_id} className="model-preview-row">
+                        <span>{model.display_name || model.model_id}</span>
+                        <code>
+                          {formatPrice(model.pricing?.input_per_1m_tokens)} in / {formatPrice(model.pricing?.output_per_1m_tokens)} out
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted tiny">No model pricing cached yet. Open the credential popup and refresh discovery.</p>
+                )}
+              </div>
+            ) : null}
           </article>
           <article className="card">
             <CardHeader title="Service" subtitle="User systemd service state and controls" />

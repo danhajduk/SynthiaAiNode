@@ -51,6 +51,7 @@ Provider capability intelligence is cached locally and refreshed on-demand/perio
 Config knobs:
 - `SYNTHIA_PROVIDER_CAPABILITY_REPORT_PATH` (default: `.run/provider_capability_report.json`)
 - `SYNTHIA_PROVIDER_CAPABILITY_REFRESH_INTERVAL_SECONDS` (default: `14400`)
+- `SYNTHIA_PROVIDER_CREDENTIALS_PATH` (default: `.run/provider_credentials.json`)
 - `SYNTHIA_TASK_CAPABILITY_SELECTION_CONFIG_PATH` (default: `.run/task_capability_selection_config.json`)
 - `SYNTHIA_PROMPT_SERVICE_STATE_PATH` (default: `.run/prompt_service_state.json`)
 - `OPENAI_API_KEY` (required for live OpenAI model discovery)
@@ -70,6 +71,16 @@ Provider debug endpoints:
 curl http://127.0.0.1:9002/debug/providers
 curl http://127.0.0.1:9002/debug/providers/models
 curl http://127.0.0.1:9002/debug/providers/metrics
+```
+
+OpenAI credential + latest-model endpoints:
+
+```bash
+curl http://127.0.0.1:9002/api/providers/openai/credentials
+curl -X POST http://127.0.0.1:9002/api/providers/openai/credentials \
+  -H 'Content-Type: application/json' \
+  -d '{"api_key":"sk-...","admin_key":null,"user_identifier":"ops"}'
+curl http://127.0.0.1:9002/api/providers/openai/models/latest?limit=3
 ```
 
 Task capability selection endpoints:

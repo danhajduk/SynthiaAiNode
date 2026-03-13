@@ -8,7 +8,6 @@ from ai_node.persistence.provider_capability_report_store import (
     ProviderCapabilityReportStore,
     validate_provider_capability_report,
 )
-
 __all__ = [
     "CapabilityStateStore",
     "validate_capability_state",

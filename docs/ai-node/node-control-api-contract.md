@@ -78,6 +78,43 @@ This is the canonical source-of-truth contract for:
 - Error:
   - `400` when provider store is unavailable.
 
+### Read OpenAI credential summary
+
+- `GET /api/providers/openai/credentials`
+- Response:
+  - `provider: "openai"`
+  - `configured: boolean`
+  - `credentials`
+    - redacted token hints only
+    - `has_api_key`
+    - `has_admin_key`
+    - `user_identifier`
+    - `updated_at`
+
+### Save OpenAI credentials
+
+- `POST /api/providers/openai/credentials`
+- Request:
+  - `api_key: string`
+  - `admin_key?: string | null`
+  - `user_identifier?: string | null`
+- Success: redacted OpenAI credential summary payload.
+- Error:
+  - `400` when provider credential validation/store fails.
+
+### Read latest OpenAI models
+
+- `GET /api/providers/openai/models/latest?limit=3`
+- Response:
+  - `provider_id: "openai"`
+  - `models[]`
+    - `model_id`
+    - `display_name`
+    - `created`
+    - `status`
+    - `pricing.input_per_1m_tokens`
+    - `pricing.output_per_1m_tokens`
+
 ## Task Capability Configuration
 
 ### Read task-capability selection

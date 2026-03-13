@@ -6,6 +6,7 @@ import httpx
 
 from ai_node.providers.base import ProviderAdapter
 from ai_node.providers.models import ModelCapability, UnifiedExecutionRequest, UnifiedExecutionResponse, UnifiedExecutionUsage
+from ai_node.providers.openai_catalog import get_openai_model_pricing
 
 
 def _iso_now() -> str:
@@ -94,10 +95,12 @@ class OpenAIProviderAdapter(ProviderAdapter):
             model_id = str(model.get("id") or "").strip()
             if not model_id:
                 continue
+            pricing = get_openai_model_pricing(model_id)
             out.append(
                 ModelCapability(
                     model_id=model_id,
                     display_name=model_id,
+                    created=int(model.get("created")) if isinstance(model.get("created"), int) else None,
                     input_modalities=["text"],
                     output_modalities=["text"],
                     context_window=None,
@@ -106,8 +109,8 @@ class OpenAIProviderAdapter(ProviderAdapter):
                     supports_tools=False,
                     supports_vision=("vision" in model_id or "gpt-4o" in model_id),
                     supports_json_mode=True,
-                    pricing_input=None,
-                    pricing_output=None,
+                    pricing_input=pricing.get("input_per_1m_tokens") if isinstance(pricing, dict) else None,
+                    pricing_output=pricing.get("output_per_1m_tokens") if isinstance(pricing, dict) else None,
                     status="available",
                 )
             )
@@ -184,15 +187,13 @@ class OpenAIProviderAdapter(ProviderAdapter):
             raise RuntimeError(str(exc).strip() or "openai_execute_failed") from exc
 
     def estimate_cost(self, *, model_id: str, prompt_tokens: int, completion_tokens: int) -> float | None:
-        # Cost table intentionally conservative placeholder; unknown models return None.
-        pricing = {
-            "gpt-4o-mini": (0.15, 0.60),
-            "gpt-4.1-mini": (0.40, 1.60),
-        }
-        rates = pricing.get(model_id)
-        if rates is None:
+        pricing = get_openai_model_pricing(model_id)
+        if not isinstance(pricing, dict):
             return None
-        in_rate, out_rate = rates
+        in_rate = pricing.get("input_per_1m_tokens")
+        out_rate = pricing.get("output_per_1m_tokens")
+        if not isinstance(in_rate, (int, float)) or not isinstance(out_rate, (int, float)):
+            return None
         estimated = ((prompt_tokens / 1_000_000.0) * in_rate) + ((completion_tokens / 1_000_000.0) * out_rate)
         return round(estimated, 8)
 

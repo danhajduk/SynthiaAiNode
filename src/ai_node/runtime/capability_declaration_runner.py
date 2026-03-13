@@ -27,6 +27,7 @@ class CapabilityDeclarationRunner:
         logger,
         trust_store,
         provider_selection_store,
+        provider_credentials_store=None,
         task_capability_selection_store=None,
         node_id: str,
         node_software_version: str = "0.1.0",
@@ -47,6 +48,7 @@ class CapabilityDeclarationRunner:
         self._logger = logger
         self._trust_store = trust_store
         self._provider_selection_store = provider_selection_store
+        self._provider_credentials_store = provider_credentials_store
         self._task_capability_selection_store = task_capability_selection_store
         self._capability_state_store = capability_state_store
         self._governance_state_store = governance_state_store
@@ -60,6 +62,7 @@ class CapabilityDeclarationRunner:
         self._provider_intelligence_service = provider_intelligence_service or ProviderIntelligenceService(
             logger=logger,
             cache_store=provider_capability_report_store,
+            provider_credentials_store=provider_credentials_store,
             refresh_interval_seconds=provider_capability_refresh_interval_seconds,
         )
         self._provider_runtime_manager = provider_runtime_manager

@@ -31,6 +31,25 @@ class NodeControlFastApiTests(unittest.TestCase):
         def load(self):
             return {"node_id": "node-001", "created_at": "2026-03-11T00:00:00Z"}
 
+    class _FakeProviderCredentialsStore:
+        def __init__(self):
+            self.payload = {"schema_version": "1.0", "providers": {}}
+
+        def load_or_create(self):
+            return self.payload
+
+        def load(self):
+            return self.payload
+
+        def upsert_openai_credentials(self, *, api_key: str, admin_key=None, user_identifier=None):
+            self.payload["providers"]["openai"] = {
+                "api_key": api_key,
+                "admin_key": admin_key,
+                "user_identifier": user_identifier,
+                "updated_at": "2026-03-13T00:00:00Z",
+            }
+            return self.payload
+
     class _FakeTaskCapabilitySelectionStore:
         def __init__(self):
             self.payload = {
@@ -124,6 +143,23 @@ class NodeControlFastApiTests(unittest.TestCase):
         def metrics_snapshot(self):
             return {"providers": {"openai": {"totals": {"total_requests": 1}}}}
 
+        def latest_models_payload(self, *, provider_id: str, limit: int = 3):
+            return {
+                "provider_id": provider_id,
+                "models": [
+                    {
+                        "model_id": "gpt-5",
+                        "display_name": "gpt-5",
+                        "created": 1741046400,
+                        "pricing_input": 1.25,
+                        "pricing_output": 10.0,
+                        "status": "available",
+                    }
+                ][:limit],
+                "source": "provider_registry",
+                "generated_at": "2026-03-13T00:00:00Z",
+            }
+
     def test_status_and_onboarding_endpoints(self):
         with tempfile.TemporaryDirectory() as tmp:
             lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-fastapi-test"))
@@ -132,6 +168,7 @@ class NodeControlFastApiTests(unittest.TestCase):
                 config_path=str(Path(tmp) / "bootstrap_config.json"),
                 logger=logging.getLogger("node-control-fastapi-test"),
                 provider_selection_store=self._FakeProviderSelectionStore(),
+                provider_credentials_store=self._FakeProviderCredentialsStore(),
                 task_capability_selection_store=self._FakeTaskCapabilitySelectionStore(),
                 capability_runner=self._FakeCapabilityRunner(),
                 provider_runtime_manager=self._FakeProviderRuntimeManager(),
@@ -163,6 +200,22 @@ class NodeControlFastApiTests(unittest.TestCase):
             provider_set_response = client.post("/api/providers/config", json={"openai_enabled": True})
             self.assertEqual(provider_set_response.status_code, 200)
             self.assertIn("openai", provider_set_response.json()["config"]["providers"]["enabled"])
+
+            credentials_get_response = client.get("/api/providers/openai/credentials")
+            self.assertEqual(credentials_get_response.status_code, 200)
+            self.assertFalse(credentials_get_response.json()["configured"])
+
+            credentials_set_response = client.post(
+                "/api/providers/openai/credentials",
+                json={"api_key": "test-api-key-1234", "admin_key": "test-admin-key-7890", "user_identifier": "ops"},
+            )
+            self.assertEqual(credentials_set_response.status_code, 200)
+            self.assertTrue(credentials_set_response.json()["credentials"]["has_api_key"])
+            self.assertTrue(credentials_set_response.json()["credentials"]["api_key_hint"].endswith("1234"))
+
+            latest_models_response = client.get("/api/providers/openai/models/latest?limit=3")
+            self.assertEqual(latest_models_response.status_code, 200)
+            self.assertEqual(latest_models_response.json()["models"][0]["model_id"], "gpt-5")
 
             capability_config_get_response = client.get("/api/capabilities/config")
             self.assertEqual(capability_config_get_response.status_code, 200)

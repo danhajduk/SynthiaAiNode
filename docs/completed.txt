@@ -137,3 +137,7 @@ Task 128: Add structured logging for provider execution - Completed on 03/12/202
 Task 129: Create Phase 4 unit tests - Completed on 03/12/2026 15:45
 Task 130: Create mock provider for local testing - Completed on 03/12/2026 15:45
 Task 131-148: Rework node documentation structure, ownership boundaries, Core references, setup/runtime docs, archive policy, and local Core docs symlink support - Completed on 03/13/2026 00:00
+Task 149: Add capability summary provider credentials button and OpenAI credential popup - Completed on 03/13/2026 13:50
+Task 150: Persist OpenAI provider credentials securely without exposing tokens in UI, logs, or committed files - Completed on 03/13/2026 13:50
+Task 151: Show the latest three OpenAI models with price metadata in the provider credentials popup or capability UI - Completed on 03/13/2026 13:50
+Task 152: Include enabled OpenAI provider identity and discovered model list in the node-to-Core provider capability report - Completed on 03/13/2026 13:50

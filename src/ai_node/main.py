@@ -13,6 +13,7 @@ import uvicorn
 from ai_node.diagnostics.phase2_logger import Phase2DiagnosticsLogger
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 from ai_node.identity.node_identity_store import NodeIdentityStore
+from ai_node.config.provider_credentials_config import ProviderCredentialsStore
 from ai_node.config.provider_selection_config import ProviderSelectionConfigStore
 from ai_node.config.task_capability_selection_config import TaskCapabilitySelectionConfigStore
 from ai_node.runtime.bootstrap_mqtt_runner import BootstrapMqttRunner
@@ -116,6 +117,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to persisted provider selection config state",
     )
     parser.add_argument(
+        "--provider-credentials-path",
+        default=os.environ.get("SYNTHIA_PROVIDER_CREDENTIALS_PATH", ".run/provider_credentials.json"),
+        help="Path to persisted provider credentials state",
+    )
+    parser.add_argument(
         "--task-capability-selection-config-path",
         default=os.environ.get(
             "SYNTHIA_TASK_CAPABILITY_SELECTION_CONFIG_PATH",
@@ -195,6 +201,7 @@ def run(
     trust_state_path: str = ".run/trust_state.json",
     node_identity_path: str = ".run/node_identity.json",
     provider_selection_config_path: str = ".run/provider_selection_config.json",
+    provider_credentials_path: str = ".run/provider_credentials.json",
     task_capability_selection_config_path: str = ".run/task_capability_selection_config.json",
     capability_state_path: str = ".run/capability_state.json",
     governance_state_path: str = ".run/governance_state.json",
@@ -232,6 +239,10 @@ def run(
         path=provider_selection_config_path,
         logger=LOGGER,
     )
+    provider_credentials_store = ProviderCredentialsStore(
+        path=provider_credentials_path,
+        logger=LOGGER,
+    )
     task_capability_selection_store = TaskCapabilitySelectionConfigStore(
         path=task_capability_selection_config_path,
         logger=LOGGER,
@@ -246,6 +257,7 @@ def run(
     provider_runtime_manager = ProviderRuntimeManager(
         logger=LOGGER,
         provider_selection_store=provider_selection_store,
+        provider_credentials_store=provider_credentials_store,
         registry_path=os.environ.get("SYNTHIA_PROVIDER_REGISTRY_PATH", "data/provider_registry.json"),
         metrics_path=os.environ.get("SYNTHIA_PROVIDER_METRICS_PATH", "data/provider_metrics.json"),
     )
@@ -336,6 +348,7 @@ def run(
         logger=LOGGER,
         trust_store=trust_state_store,
         provider_selection_store=provider_selection_store,
+        provider_credentials_store=provider_credentials_store,
         task_capability_selection_store=task_capability_selection_store,
         node_id=node_identity["node_id"],
         node_software_version=node_software_version,
@@ -363,6 +376,7 @@ def run(
         capability_runner=capability_runner,
         node_identity_store=node_identity_store,
         provider_selection_store=provider_selection_store,
+        provider_credentials_store=provider_credentials_store,
         task_capability_selection_store=task_capability_selection_store,
         trust_state_store=trust_state_store,
         prompt_service_state_store=prompt_service_state_store,
@@ -409,6 +423,7 @@ def main() -> int:
         trust_state_path=args.trust_state_path,
         node_identity_path=args.node_identity_path,
         provider_selection_config_path=args.provider_selection_config_path,
+        provider_credentials_path=args.provider_credentials_path,
         task_capability_selection_config_path=args.task_capability_selection_config_path,
         capability_state_path=args.capability_state_path,
         governance_state_path=args.governance_state_path,

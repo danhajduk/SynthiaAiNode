@@ -17,6 +17,7 @@ Backend runtime:
 - `SYNTHIA_TRUST_STATE_PATH` default `.run/trust_state.json`
 - `SYNTHIA_NODE_IDENTITY_PATH` default `.run/node_identity.json`
 - `SYNTHIA_PROVIDER_SELECTION_CONFIG_PATH` default `.run/provider_selection_config.json`
+- `SYNTHIA_PROVIDER_CREDENTIALS_PATH` default `.run/provider_credentials.json`
 - `SYNTHIA_TASK_CAPABILITY_SELECTION_CONFIG_PATH` default `.run/task_capability_selection_config.json`
 - `SYNTHIA_CAPABILITY_STATE_PATH` default `.run/capability_state.json`
 - `SYNTHIA_GOVERNANCE_STATE_PATH` default `.run/governance_state.json`
@@ -37,13 +38,14 @@ Provider-specific:
 
 - `scripts/stack.env`: local service commands for `bootstrap.sh`
 - `.run/*.json`: persisted node runtime state
+- `.run/provider_credentials.json`: restricted-permission provider credential store
 - `data/provider_registry.json`: provider capability snapshot
 - `data/provider_metrics.json`: provider metrics snapshot
 
 ## Secrets Handling
 
 - Trust tokens and operational MQTT tokens are stored in trust state and must not be logged or committed.
-- `OPENAI_API_KEY` should be supplied through environment or local service configuration, not committed files.
+- OpenAI provider credentials may be supplied through environment or saved locally in `.run/provider_credentials.json`; they must not be logged or committed.
 - `.run/`, `.venv/`, `logs/`, and local Core doc symlinks are ignored in git.
 
 ## Defaults And Required Values

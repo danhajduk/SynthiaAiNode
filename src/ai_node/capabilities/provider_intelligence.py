@@ -8,6 +8,9 @@ from statistics import mean
 
 import httpx
 
+from ai_node.config.provider_credentials_config import ProviderCredentialsStore
+from ai_node.providers.openai_catalog import get_openai_model_pricing
+
 
 PROVIDER_INTELLIGENCE_SCHEMA_VERSION = "1.0"
 DEFAULT_PROVIDER_CAPABILITY_REFRESH_INTERVAL_SECONDS = 4 * 60 * 60
@@ -87,12 +90,16 @@ def _normalize_model_entry(provider: str, model: dict) -> dict | None:
     model_id = str(model.get("id") or "").strip()
     if not model_id:
         return None
+    pricing = _extract_pricing(model)
+    if pricing is None and provider == "openai":
+        pricing = get_openai_model_pricing(model_id)
     return {
         "id": model_id,
         "normalized_id": _normalize_model_identifier(provider, model_id),
+        "created": model.get("created") if isinstance(model.get("created"), int) else None,
         "context_window": _extract_context_window(model),
         "modalities": _extract_modalities(model),
-        "pricing": _extract_pricing(model),
+        "pricing": pricing,
     }
 
 
@@ -166,11 +173,13 @@ class ProviderIntelligenceService:
         logger,
         cache_store=None,
         adapter=None,
+        provider_credentials_store: ProviderCredentialsStore | None = None,
         refresh_interval_seconds: int = DEFAULT_PROVIDER_CAPABILITY_REFRESH_INTERVAL_SECONDS,
     ) -> None:
         self._logger = logger
         self._cache_store = cache_store
         self._adapter = adapter or ProviderDiscoveryAdapter()
+        self._provider_credentials_store = provider_credentials_store
         self._refresh_interval_seconds = int(refresh_interval_seconds)
         if self._refresh_interval_seconds <= 0:
             self._refresh_interval_seconds = DEFAULT_PROVIDER_CAPABILITY_REFRESH_INTERVAL_SECONDS
@@ -237,7 +246,7 @@ class ProviderIntelligenceService:
         return age_seconds < self._refresh_interval_seconds
 
     async def _discover_openai(self, previous: dict | None) -> dict:
-        api_key = str(os.environ.get("OPENAI_API_KEY") or "").strip()
+        api_key = self._resolve_openai_api_key()
         base_url = str(os.environ.get("SYNTHIA_OPENAI_BASE_URL") or "https://api.openai.com/v1").strip()
         if not api_key:
             return self._unsupported_provider_payload(
@@ -254,7 +263,10 @@ class ProviderIntelligenceService:
                 normalized = _normalize_model_entry("openai", item)
                 if normalized is not None:
                     normalized_models.append(normalized)
-            normalized_models.sort(key=lambda item: item.get("id") or "")
+            normalized_models.sort(
+                key=lambda item: (int(item.get("created") or 0), str(item.get("id") or "")),
+                reverse=True,
+            )
             samples = self._merge_latency_samples(previous=previous, new_sample=latency_sample)
             return {
                 "provider": "openai",
@@ -302,6 +314,23 @@ class ProviderIntelligenceService:
             "_latency_samples": samples,
             "last_error": error,
         }
+
+    def _resolve_openai_api_key(self) -> str:
+        env_value = str(os.environ.get("OPENAI_API_KEY") or "").strip()
+        if env_value:
+            return env_value
+        if self._provider_credentials_store is None or not hasattr(self._provider_credentials_store, "load"):
+            return ""
+        payload = self._provider_credentials_store.load()
+        if not isinstance(payload, dict):
+            return ""
+        providers = payload.get("providers")
+        if not isinstance(providers, dict):
+            return ""
+        openai_payload = providers.get("openai")
+        if not isinstance(openai_payload, dict):
+            return ""
+        return str(openai_payload.get("api_key") or "").strip()
 
 
 def compact_provider_intelligence_report(payload: dict | None) -> dict:
