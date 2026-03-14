@@ -44,7 +44,7 @@ Stop processing task when you reach the [STOP] flag!
 Do not edit above this line:
 #######################################################################
 
-[WIP] Task 206: Implement feature union builder
+[WIP] Task 207: Resolve node task capabilities
 Create a graph definition file:
 
 capabilities/task_graph.json
@@ -142,7 +142,6 @@ Rules:
 - feature is enabled if ANY enabled model supports it
 - features stored as boolean set
 
-[TODO] Task 207: Resolve node task capabilities
 Using the capability graph resolver:
 
 Input:

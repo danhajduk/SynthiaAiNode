@@ -618,3 +618,9 @@ Chosen fix: Added runtime resolver module with graph loading, feature union cons
 What changed: Added `src/ai_node/runtime/capability_resolver.py` and `tests/test_capability_resolver.py`.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_capability_resolver tests.test_provider_runtime tests.test_model_feature_catalog` passed.
 ###########
+Task #206
+Step objective: Implement standalone feature-union utility for enabled-model feature merging.
+Chosen fix: Extracted feature union logic into runtime/feature_union.py with deterministic boolean merge semantics where any enabled model can enable a feature.
+What changed: Added `src/ai_node/runtime/feature_union.py`, updated resolver import usage, and added `tests/test_feature_union.py`.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_feature_union tests.test_capability_resolver` passed.
+###########
