@@ -1,13 +1,15 @@
 import logging
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from ai_node.providers.model_capability_catalog import ProviderModelCapabilityEntry
+from ai_node.providers.model_feature_schema import create_default_feature_flags
 from ai_node.providers.adapters.mock_adapter import MockProviderAdapter
 from ai_node.providers.execution_router import ProviderExecutionRouter
 from ai_node.providers.metrics import ProviderMetricsCollector
-from ai_node.providers.models import ModelCapability, UnifiedExecutionRequest
+from ai_node.providers.models import ModelCapability, UnifiedExecutionRequest, UnifiedExecutionResponse
 from ai_node.providers.provider_registry import ProviderRegistry
 from ai_node.providers.runtime_manager import ProviderRuntimeManager
 
@@ -18,6 +20,74 @@ class _SelectionStore:
 
     def load_or_create(self, **_kwargs):
         return self._payload
+
+
+class _CredentialsStore:
+    def __init__(self):
+        self._payload = {
+            "schema_version": "1.0",
+            "providers": {
+                "openai": {
+                    "api_token": "token-alpha-1234",
+                    "service_token": "service-token-1234",
+                    "project_name": "ops",
+                    "selected_model_ids": ["gpt-5-mini"],
+                }
+            },
+        }
+
+    def load_or_create(self):
+        return self._payload
+
+    def load(self):
+        return self._payload
+
+
+class _FakeOpenAIAdapter:
+    async def health_check(self):
+        return {"availability": "available"}
+
+    async def list_models(self):
+        return [
+            ModelCapability(model_id="gpt-5-mini", display_name="gpt-5-mini", created=1740950000),
+            ModelCapability(model_id="gpt-5-mini-2026-03-05", display_name="gpt-5-mini-2026-03-05", created=1741219200),
+            ModelCapability(model_id="gpt-5-preview", display_name="gpt-5-preview", created=1741305600),
+        ]
+
+    async def execute_prompt(self, _request):
+        feature_flags = create_default_feature_flags()
+        feature_flags["chat"] = True
+        feature_flags["reasoning"] = True
+        feature_flags["structured_output"] = True
+        return UnifiedExecutionResponse(
+            provider_id="openai",
+            model_id="gpt-5-nano",
+            output_text=json.dumps(
+                {
+                    "models": [
+                        {
+                            "model_id": "gpt-5-mini",
+                            "family": "llm",
+                            "reasoning": True,
+                            "vision": False,
+                            "image_generation": False,
+                            "audio_input": False,
+                            "audio_output": False,
+                            "realtime": False,
+                            "tool_calling": True,
+                            "structured_output": True,
+                            "long_context": True,
+                            "coding_strength": "high",
+                            "speed_tier": "medium",
+                            "cost_tier": "medium",
+                            "recommended_for": ["chat", "classification"],
+                            "feature_flags": feature_flags,
+                        }
+                    ]
+                }
+            ),
+            latency_ms=1.0,
+        )
 
 
 class ProviderRuntimeTests(unittest.IsolatedAsyncioTestCase):
@@ -216,6 +286,31 @@ class ProviderRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(enabled_payload["models"][0]["model_id"], "gpt-5-mini")
             self.assertTrue(resolved_payload["capabilities"]["reasoning"])
             self.assertEqual(resolved_payload["capabilities"]["coding_strength"], "high")
+
+    async def test_refresh_openai_models_runs_filtered_classification_and_saves_feature_catalog(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = ProviderRuntimeManager(
+                logger=logging.getLogger("provider-runtime-test"),
+                provider_selection_store=_SelectionStore(enabled=["openai"]),
+                provider_credentials_store=_CredentialsStore(),
+                registry_path=str(Path(tmp) / "provider_registry.json"),
+                metrics_path=str(Path(tmp) / "provider_metrics.json"),
+                provider_model_catalog_path=str(Path(tmp) / "provider_models.json"),
+                provider_model_capabilities_path=str(Path(tmp) / "provider_model_capabilities.json"),
+                provider_model_features_path=str(Path(tmp) / "providers" / "openai" / "provider_model_features.json"),
+            )
+            runtime._build_adapter = lambda **_kwargs: _FakeOpenAIAdapter()  # noqa: SLF001
+
+            payload = await runtime.refresh_openai_models_from_saved_credentials()
+
+            self.assertEqual(payload["status"], "refreshed")
+            catalog_payload = runtime.openai_model_catalog_payload()
+            self.assertEqual([item["model_id"] for item in catalog_payload["models"]], ["gpt-5-mini"])
+            capabilities_payload = runtime.openai_model_capabilities_payload()
+            self.assertEqual(capabilities_payload["classification_model"], "gpt-5-mini")
+            features_payload = runtime.openai_model_features_payload()
+            self.assertEqual(features_payload["entries"][0]["model_id"], "gpt-5-mini")
+            self.assertTrue(features_payload["entries"][0]["features"]["chat"])
 
 
 if __name__ == "__main__":

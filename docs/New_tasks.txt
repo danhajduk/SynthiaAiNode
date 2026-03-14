@@ -44,30 +44,7 @@ Stop processing task when you reach the [STOP] flag!
 Do not edit above this line:
 #######################################################################
 
-[WIP] Task 202: Run classification after provider setup
-Create the prompt used by the nano/mini classifier model.
-
-Requirements:
-
-- Input: list of model IDs
-- Output: JSON only
-- Return boolean feature flags for all schema features
-- Reject unknown feature keys
-
-Classifier model priority:
-
-1. gpt-x.x-nano
-2. gpt-x.x-mini
-Run classification after provider setup
-After the OpenAI token is saved:
-
-1. fetch models
-2. filter supported models
-3. run classification using nano/mini model
-4. validate schema
-5. store in provider_model_features.json
-
-[TODO] Task 203: Introduce capability graph definition
+[WIP] Task 203: Introduce capability graph definition
 Create a graph definition file:
 
 capabilities/task_graph.json

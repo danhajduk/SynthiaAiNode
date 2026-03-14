@@ -594,3 +594,9 @@ Chosen fix: Extended prompt tests to verify JSON-only wording, inclusion of ever
 What changed: Updated `tests/test_model_capability_catalog.py` with prompt contract coverage for feature flag schema and model-list input assertions.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_model_capability_catalog tests.test_model_feature_schema tests.test_model_feature_catalog` passed.
 ###########
+Task #202
+Step objective: Ensure OpenAI model feature classification executes immediately after provider credential setup and persists validated output.
+Chosen fix: Wired runtime refresh path to fetch models, apply existing catalog filtering, run classifier through model capability pipeline (nano/mini selection + schema validation), and persist normalized feature entries into provider_model_features.json.
+What changed: Updated `tests/test_provider_runtime.py` with an integration-style runtime test covering refresh flow and feature catalog persistence; leveraged `ProviderRuntimeManager.refresh_openai_models_from_saved_credentials` path.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_provider_runtime tests.test_model_feature_catalog tests.test_model_capability_catalog tests.test_model_feature_schema` passed.
+###########
