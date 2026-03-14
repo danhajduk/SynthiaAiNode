@@ -75,10 +75,15 @@ class _FakeClientAccepted:
 class _FakeClientAcceptedCapture(_FakeClientAccepted):
     def __init__(self):
         self.last_manifest = None
+        self.last_provider_intelligence_report = None
 
     async def submit_manifest(self, **kwargs):
         self.last_manifest = kwargs.get("capability_manifest")
         return await super().submit_manifest(**kwargs)
+
+    async def submit_provider_intelligence(self, **kwargs):
+        self.last_provider_intelligence_report = kwargs.get("provider_intelligence_report")
+        return await super().submit_provider_intelligence(**kwargs)
 
 
 class _FakeClientRetry:
@@ -250,6 +255,18 @@ class _FakePromptServiceStateStore:
 
 
 class _FakeProviderRuntimeManager:
+    async def refresh(self):
+        return {
+            "generated_at": "2026-03-13T00:00:00Z",
+            "providers": [
+                {
+                    "provider_id": "openai",
+                    "availability": "available",
+                    "models": [{"model_id": "gpt-5-mini"}],
+                }
+            ],
+        }
+
     def openai_resolved_capabilities_payload(self):
         return {
             "provider_id": "openai",
@@ -595,6 +612,44 @@ class CapabilityDeclarationRunnerTests(unittest.IsolatedAsyncioTestCase):
                 {"provider_id": "openai", "model_id": "whisper-1"},
             ],
         )
+
+    async def test_declaration_integration_includes_resolved_tasks_and_provider_intelligence(self):
+        lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))
+        lifecycle.transition_to(NodeLifecycleState.TRUSTED)
+        lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
+        runtime_manager = _FakeProviderRuntimeManager()
+        client = _FakeClientAcceptedCapture()
+        runner = CapabilityDeclarationRunner(
+            lifecycle=lifecycle,
+            logger=logging.getLogger("capability-runner-test"),
+            trust_store=_FakeTrustStore(),
+            provider_selection_store=_FakeProviderSelectionStore(),
+            task_capability_selection_store=_FakeTaskCapabilitySelectionStore(),
+            node_id="node-001",
+            capability_client=client,
+            governance_client=_FakeGovernanceClientSynced(),
+            operational_readiness_checker=_FakeOperationalReadinessReady(),
+            telemetry_publisher=_FakeTelemetryPublisher(),
+            phase2_state_store=_FakePhase2StateStore(),
+            provider_runtime_manager=runtime_manager,
+        )
+
+        result = await runner.submit_once()
+        self.assertEqual(result["status"], "accepted")
+
+        resolved_tasks = runtime_manager.node_capabilities_payload()["enabled_task_capabilities"]
+        self.assertTrue(set(resolved_tasks).issubset(set(client.last_manifest["declared_task_families"])))
+        self.assertEqual(
+            client.last_manifest["provider_metadata"][0]["resolved_tasks"],
+            resolved_tasks,
+        )
+        self.assertEqual(
+            client.last_manifest["provider_metadata"][0]["feature_union"],
+            runtime_manager.node_capabilities_payload()["feature_union"],
+        )
+        self.assertEqual(client.last_manifest["provider_metadata"][0]["capability_graph_version"], "1.0")
+        self.assertIsInstance(client.last_provider_intelligence_report, dict)
+        self.assertEqual(client.last_provider_intelligence_report["providers"][0]["provider_id"], "openai")
 
     async def test_operational_readiness_failure_moves_to_retry_pending(self):
         lifecycle = NodeLifecycle(logger=logging.getLogger("capability-runner-test"))

@@ -44,7 +44,6 @@ Stop processing task when you reach the [STOP] flag!
 Do not edit above this line:
 #######################################################################
 
-[WIP] Task 216: Add declaration integration tests
 Create a graph definition file:
 
 capabilities/task_graph.json

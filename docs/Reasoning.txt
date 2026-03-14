@@ -678,3 +678,9 @@ Chosen fix: Extended resolver tests to verify graph resolution behavior across a
 What changed: Updated `tests/test_capability_resolver.py`.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_capability_resolver tests.test_feature_union tests.test_provider_runtime` passed.
 ###########
+Task #216
+Step objective: Add declaration integration coverage proving resolved node capabilities are used for Core payload declaration and provider intelligence submission.
+Chosen fix: Extended declaration runner tests with an integration-style path that asserts resolved tasks from node capabilities appear in `declared_task_families`, provider metadata is populated, and provider intelligence is submitted to Core.
+What changed: Updated `tests/test_capability_declaration_runner.py`.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_capability_declaration_runner tests.test_capability_manifest_schema tests.test_provider_runtime` passed.
+###########
