@@ -12,6 +12,10 @@ from ai_node.providers.model_capability_catalog import (
     OpenAIModelCapabilityClassifier,
     ProviderModelCapabilitiesStore,
 )
+from ai_node.providers.model_feature_catalog import (
+    DEFAULT_PROVIDER_MODEL_FEATURES_PATH,
+    ProviderModelFeatureCatalogStore,
+)
 from ai_node.providers.metrics import ProviderMetricsCollector
 from ai_node.providers.models import UnifiedExecutionRequest, UnifiedExecutionResponse
 from ai_node.providers.openai_catalog import (
@@ -51,6 +55,7 @@ class ProviderRuntimeManager:
         pricing_stale_tolerance_seconds: int = DEFAULT_OPENAI_PRICING_STALE_TOLERANCE_SECONDS,
         provider_model_catalog_path: str = DEFAULT_OPENAI_PROVIDER_MODEL_CATALOG_PATH,
         provider_model_capabilities_path: str = DEFAULT_PROVIDER_MODEL_CAPABILITIES_PATH,
+        provider_model_features_path: str = DEFAULT_PROVIDER_MODEL_FEATURES_PATH,
         provider_enabled_models_path: str = DEFAULT_PROVIDER_ENABLED_MODELS_PATH,
     ) -> None:
         self._logger = logger
@@ -75,6 +80,10 @@ class ProviderRuntimeManager:
         )
         self._provider_model_capabilities_store = ProviderModelCapabilitiesStore(
             path=provider_model_capabilities_path,
+            logger=logger,
+        )
+        self._provider_model_feature_catalog_store = ProviderModelFeatureCatalogStore(
+            path=provider_model_features_path,
             logger=logger,
         )
         self._provider_enabled_models_store = ProviderEnabledModelsStore(
@@ -290,6 +299,9 @@ class ProviderRuntimeManager:
     def openai_enabled_models_payload(self) -> dict:
         return self._provider_enabled_models_store.payload()
 
+    def openai_model_features_payload(self) -> dict:
+        return self._provider_model_feature_catalog_store.payload()
+
     def save_openai_enabled_models(self, *, model_ids: list[str]) -> dict:
         snapshot = self._provider_enabled_models_store.save_enabled_model_ids(model_ids=model_ids)
         return {
@@ -355,6 +367,11 @@ class ProviderRuntimeManager:
     async def _refresh_openai_model_capabilities(self, *, adapter: OpenAIProviderAdapter, models: list) -> None:
         if not models:
             self._provider_model_capabilities_store.save(classification_model=None, entries=[])
+            self._provider_model_feature_catalog_store.save_entries(
+                provider="openai",
+                classification_model=None,
+                entries=[],
+            )
             return
 
         async def execute_batch(model_id: str, system_prompt: str, user_prompt: str) -> str:
@@ -375,7 +392,26 @@ class ProviderRuntimeManager:
             execute_batch=execute_batch,
         )
         try:
-            await classifier.classify_and_save(models=models)
+            snapshot = await classifier.classify_and_save(models=models)
+            if snapshot is None:
+                self._provider_model_feature_catalog_store.save_entries(
+                    provider="openai",
+                    classification_model=None,
+                    entries=[],
+                )
+                return
+            self._provider_model_feature_catalog_store.save_entries(
+                provider="openai",
+                classification_model=snapshot.classification_model,
+                entries=[
+                    {
+                        "model_id": entry.model_id,
+                        "features": entry.feature_flags,
+                    }
+                    for entry in snapshot.entries
+                ],
+                classified_at=snapshot.updated_at,
+            )
         except Exception as exc:
             if hasattr(self._logger, "warning"):
                 self._logger.warning("[provider-model-capability-classification-failed] %s", {"error": str(exc).strip() or type(exc).__name__})

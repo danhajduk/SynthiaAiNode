@@ -44,89 +44,233 @@ Stop processing task when you reach the [STOP] flag!
 Do not edit above this line:
 #######################################################################
 
-[WIP] Task 197: Add tests for model filtering
-Test filtering logic for:
+[WIP] Task 201: Implement classification prompt for model features
+Create the prompt used by the nano/mini classifier model.
 
-- valid model families
-- excluded preview models
-- excluded snapshot models
-- duplicate removal
+Requirements:
 
-Ensure deterministic filtering.
+- Input: list of model IDs
+- Output: JSON only
+- Return boolean feature flags for all schema features
+- Reject unknown feature keys
 
-[TODO] Task 198: Add tests for capability classification schema
-Test:
+Classifier model priority:
 
-- valid JSON outputs
-- invalid schema rejection
-- controlled vocabulary enforcement
-- recommended_for validation
+1. gpt-x.x-nano
+2. gpt-x.x-mini
+[TODO] Task 202: Run classification after provider setup
+After the OpenAI token is saved:
 
-Ensure classification results remain stable.
+1. fetch models
+2. filter supported models
+3. run classification using nano/mini model
+4. validate schema
+5. store in provider_model_features.json
 
-[TODO] Task 199: Introduce model feature classification schema
-Create a canonical feature schema used for provider model classification.
+[TODO] Task 203: Introduce capability graph definition
+Create a graph definition file:
 
-Features to support:
+capabilities/task_graph.json
 
-Core cognition
-- chat
-- reasoning
-- instruction_following
-- classification
-- summarization
-- information_extraction
-- translation
-- sentiment_analysis
-- long_context
+Each node represents a task capability and defines feature dependencies.
 
-Automation / tools
-- structured_output
-- json_output
-- schema_output
-- tool_calling
-- function_calling
-- planning
-- automation_commands
-- environment_control
+Graph rule format:
+
+{
+  "task.reasoning": {
+    "all_of": ["reasoning"]
+  }
+}
+
+
+[TODO] Task 204: Define full task capability graph
+Define the following task capability nodes:
+
+Core intelligence
+- task.chat
+- task.reasoning
+- task.classification
+- task.summarization
+- task.information_extraction
+- task.structured_extraction
+- task.translation
+- task.sentiment_analysis
+
+Automation / orchestration
+- task.task_planning
+- task.workflow_reasoning
+- task.tool_usage
+- task.automation_command
+- task.environment_control
 
 Coding
-- code_generation
-- code_review
-- code_debugging
-- code_explanation
+- task.code_generation
+- task.code_review
+- task.code_debugging
+- task.code_explanation
 
 Vision
-- vision_input
-- image_understanding
-- document_understanding
-- ocr
-- object_detection
+- task.vision_analysis
+- task.object_detection
+- task.image_description
+- task.document_ocr
 
 Images
-- image_generation
-- image_editing
-- image_variation
+- task.image_generation
+- task.image_editing
+- task.image_variation
 
-Audio
-- audio_input
-- speech_to_text
-- audio_output
-- text_to_speech
-- voice_conversation
-- audio_analysis
+Speech
+- task.speech_to_text
+- task.text_to_speech
+- task.voice_conversation
+- task.audio_analysis
 
 Realtime
-- realtime_interaction
-- streaming_output
-- low_latency
+- task.realtime_voice
+- task.streaming_response
+- task.low_latency_interaction
 
 Knowledge
-- embeddings
-- semantic_search
-- document_indexing
-- knowledge_retrieval
+- task.embedding_generation
+- task.semantic_search
+- task.document_indexing
+- task.knowledge_retrieval
 
 Safety
-- moderation
-- policy_check
+- task.moderation
+- task.policy_check
+
+[TODO] Task 205: Implement capability graph resolver
+Create resolver module:
+
+runtime/capability_resolver.py
+
+Resolver logic:
+
+1. collect enabled models
+2. union all feature flags
+3. evaluate graph rules
+4. return enabled tasks
+
+Pseudo logic:
+
+features_union = union(model_features)
+
+for each task_node:
+    if dependency rules satisfied:
+        enable task
+
+[TODO] Task 206: Implement feature union builder
+Create utility that merges feature flags from all enabled models.
+
+Rules:
+
+- feature is enabled if ANY enabled model supports it
+- features stored as boolean set
+
+[TODO] Task 207: Resolve node task capabilities
+Using the capability graph resolver:
+
+Input:
+enabled_models
+
+Output:
+enabled_task_capabilities
+
+Store result as:
+
+runtime/node_capabilities.json
+
+[TODO] Task 208: Update AI node capability declaration builder
+Modify declaration payload generator.
+
+Instead of declaring raw model capabilities:
+
+Declare resolved task capabilities only.
+
+Example:
+
+declared_task_families:
+
+- task.reasoning
+- task.classification
+- task.summarization
+- task.vision_analysis
+- task.speech_to_text
+
+[TODO] Task 209: Include provider intelligence in declaration payload
+Add provider intelligence metadata to capability declaration payload.
+
+Fields:
+
+provider
+enabled_models
+feature_union
+resolved_tasks
+capability_graph_version
+
+This fixes the current Core rejection issue.
+
+[TODO] Task 210: Update AI Provider Setup UI
+Modify setup page to display two sections:
+
+Model Features
+- unioned features across enabled models
+
+Resolved Node Tasks
+- tasks enabled via capability graph
+
+[TODO] Task 211: Display capability graph resolution
+Add UI card:
+
+Resolved Node Capabilities
+
+Show:
+
+Enabled Models
+Feature Union
+Resolved Tasks
+Classifier Model Used
+
+[TODO] Task 212: Add diagnostics panel
+Create admin diagnostics view.
+
+Display:
+
+discovered models
+feature catalog
+capability graph
+enabled models
+resolved tasks
+last declaration payload
+
+[TODO] Task 213: Add refresh controls
+Allow manual actions:
+
+refresh provider models
+re-run classification
+recompute capability graph
+redeclare capabilities to Core
+
+[TODO] Task 214: Add validation tests for feature schema
+Test classification JSON:
+
+- unknown feature keys rejected
+- required schema enforced
+- boolean fields validated
+
+[TODO] Task 215: Add capability graph resolution tests
+Test graph resolver:
+
+- single model
+- multiple models
+- missing features
+- partial graph matches
+
+[TODO] Task 216: Add declaration integration tests
+Verify:
+
+node capabilities resolve correctly
+payload sent to Core matches resolved tasks
+provider_intelligence included

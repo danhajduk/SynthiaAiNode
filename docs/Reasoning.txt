@@ -582,3 +582,9 @@ Chosen fix: Added grouped canonical feature vocabulary, normalization/validation
 What changed: Added `src/ai_node/providers/model_feature_schema.py`; updated `src/ai_node/providers/model_capability_catalog.py`; added coverage in `tests/test_model_feature_schema.py` and `tests/test_model_capability_catalog.py`.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_model_feature_schema tests.test_model_capability_catalog` passed.
 ###########
+Task #200
+Step objective: Persist a model feature classification catalog at providers/openai/provider_model_features.json.
+Chosen fix: Added a dedicated feature catalog store with normalized entries and connected runtime classification refresh to write feature records with model/provider/features/classification metadata.
+What changed: Added `src/ai_node/providers/model_feature_catalog.py`; updated `src/ai_node/providers/runtime_manager.py`; added `tests/test_model_feature_catalog.py`.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_model_feature_catalog tests.test_model_feature_schema tests.test_model_capability_catalog` passed.
+###########
