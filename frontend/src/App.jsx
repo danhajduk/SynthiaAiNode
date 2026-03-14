@@ -457,6 +457,10 @@ export default function App() {
     : Array.isArray(resolvedNodeCapabilities?.resolved_tasks)
       ? resolvedNodeCapabilities.resolved_tasks
       : [];
+  const classifierModelUsed =
+    openaiModelFeatures.find((entry) => entry?.classification_model)?.classification_model ||
+    resolvedOpenaiCapabilities?.classification_model ||
+    "unavailable";
   const pricingReviewModelId = pricingReviewModelIds[pricingReviewIndex] || "";
   const pricingReviewModel = latestOpenaiModels.find((model) => model.model_id === pricingReviewModelId) || null;
   const setupReadinessFlags = uiState.capabilitySummary.setupReadinessFlags || {};
@@ -1548,6 +1552,45 @@ export default function App() {
               </div>
             ) : null}
           </article>
+          <article className="card capability-summary-card">
+            <CardHeader title="Resolved Node Capabilities" subtitle="Capability graph output from enabled model features." />
+            <div className="state-grid">
+              <span>Enabled Models</span>
+              <code>{(resolvedNodeCapabilities?.enabled_models || enabledOpenaiModelIds).join(", ") || "none_enabled"}</code>
+              <span>Classifier Model Used</span>
+              <code>{classifierModelUsed}</code>
+            </div>
+            <div>
+              <strong>Feature Union</strong>
+              <div className="recommended-task-list">
+                {Object.entries(openaiFeatureUnion)
+                  .filter(([, enabled]) => enabled)
+                  .sort(([left], [right]) => left.localeCompare(right))
+                  .map(([feature]) => (
+                    <span key={`dashboard-${feature}`} className="capability-badge">
+                      {formatRecommendedTask(feature)}
+                    </span>
+                  ))}
+                {!Object.values(openaiFeatureUnion).some((enabled) => enabled) ? (
+                  <span className="muted tiny">No feature union available.</span>
+                ) : null}
+              </div>
+            </div>
+            <div>
+              <strong>Resolved Tasks</strong>
+              <div className="recommended-task-list">
+                {resolvedNodeTasks.length ? (
+                  resolvedNodeTasks.map((task) => (
+                    <span key={`dashboard-${task}`} className="capability-badge">
+                      {task}
+                    </span>
+                  ))
+                ) : (
+                  <span className="muted tiny">No resolved node tasks available.</span>
+                )}
+              </div>
+            </div>
+          </article>
           <article className="card">
             <CardHeader title="Service" subtitle="User systemd service state and controls" />
             <div className="state-grid">
@@ -1604,6 +1647,14 @@ export default function App() {
                 <code>
                   {(capabilityDiagnostics?.capability_catalog?.entries || []).map((entry) => entry.model_id).join(", ") || "none"}
                 </code>
+                <span>Feature Catalog</span>
+                <code>
+                  {(capabilityDiagnostics?.feature_catalog?.entries || []).map((entry) => entry.model_id).join(", ") || "none"}
+                </code>
+                <span>Resolved Tasks</span>
+                <code>{(capabilityDiagnostics?.resolved_tasks || []).join(", ") || "none"}</code>
+                <span>Capability Graph Version</span>
+                <code>{capabilityDiagnostics?.capability_graph?.capability_graph_version || "unavailable"}</code>
                 <span>Classification Model</span>
                 <code>{capabilityDiagnostics?.classification_model || "unavailable"}</code>
                 <span>Last Declaration Result</span>
@@ -1614,33 +1665,33 @@ export default function App() {
                   className="btn"
                   type="button"
                   onClick={() =>
-                    runAdminAction("refresh_model_discovery", "/api/capabilities/providers/refresh", { force_refresh: true })
+                    runAdminAction("refresh_provider_models", "/api/capabilities/providers/refresh", { force_refresh: true })
                   }
                   disabled={Boolean(runningAdminAction)}
                 >
-                  {runningAdminAction === "refresh_model_discovery" ? "Refreshing..." : "Refresh Model Discovery"}
+                  {runningAdminAction === "refresh_provider_models" ? "Refreshing..." : "Refresh Provider Models"}
                 </button>
                 <button
                   className="btn"
                   type="button"
                   onClick={() =>
                     runAdminAction(
-                      "rerun_capability_classification",
+                      "rerun_classification",
                       "/api/providers/openai/models/classification/refresh",
                       {}
                     )
                   }
                   disabled={Boolean(runningAdminAction)}
                 >
-                  {runningAdminAction === "rerun_capability_classification" ? "Running..." : "Rerun Capability Classification"}
+                  {runningAdminAction === "rerun_classification" ? "Running..." : "Re-run Classification"}
                 </button>
                 <button
                   className="btn"
                   type="button"
-                  onClick={() => runAdminAction("rebuild_node_capabilities", "/api/capabilities/rebuild", {})}
+                  onClick={() => runAdminAction("recompute_capability_graph", "/api/capabilities/rebuild", {})}
                   disabled={Boolean(runningAdminAction)}
                 >
-                  {runningAdminAction === "rebuild_node_capabilities" ? "Rebuilding..." : "Rebuild Node Capabilities"}
+                  {runningAdminAction === "recompute_capability_graph" ? "Computing..." : "Recompute Capability Graph"}
                 </button>
                 <button
                   className="btn btn-primary"
@@ -1648,7 +1699,7 @@ export default function App() {
                   onClick={() => runAdminAction("redeclare_capabilities", "/api/capabilities/redeclare", { force_refresh: false })}
                   disabled={Boolean(runningAdminAction)}
                 >
-                  {runningAdminAction === "redeclare_capabilities" ? "Redeclaring..." : "Redeclare To Core"}
+                  {runningAdminAction === "redeclare_capabilities" ? "Redeclaring..." : "Redeclare Capabilities To Core"}
                 </button>
               </div>
               <p className="muted tiny">
@@ -1661,6 +1712,14 @@ export default function App() {
               <details>
                 <summary>Last Declaration Result</summary>
                 <pre className="json-block">{JSON.stringify(capabilityDiagnostics?.last_declaration_result || {}, null, 2)}</pre>
+              </details>
+              <details>
+                <summary>Feature Catalog</summary>
+                <pre className="json-block">{JSON.stringify(capabilityDiagnostics?.feature_catalog || {}, null, 2)}</pre>
+              </details>
+              <details>
+                <summary>Capability Graph</summary>
+                <pre className="json-block">{JSON.stringify(capabilityDiagnostics?.capability_graph || {}, null, 2)}</pre>
               </details>
             </article>
           ) : null}

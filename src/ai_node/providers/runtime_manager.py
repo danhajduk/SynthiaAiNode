@@ -366,6 +366,17 @@ class ProviderRuntimeManager:
         payload.setdefault("source", "node_capabilities")
         return payload
 
+    def rebuild_node_capabilities(self) -> dict:
+        self._resolve_and_persist_node_capabilities()
+        payload = self.node_capabilities_payload()
+        return {
+            "status": "rebuilt",
+            "provider_id": "openai",
+            "resolved_capabilities": self.openai_resolved_capabilities_payload(),
+            "resolved_tasks": list(payload.get("enabled_task_capabilities") or payload.get("resolved_tasks") or []),
+            "node_capabilities": payload,
+        }
+
     async def rerun_openai_model_capabilities(self) -> dict:
         config = self._loader.load()
         settings = config.providers.get("openai")

@@ -17,6 +17,7 @@ from ai_node.config.task_capability_selection_config import create_task_capabili
 from ai_node.diagnostics.phase2_logger import Phase2DiagnosticsLogger
 from ai_node.lifecycle.node_lifecycle import NodeLifecycle, NodeLifecycleState
 from ai_node.runtime.service_manager import NullServiceManager
+from ai_node.runtime.capability_resolver import load_task_graph
 
 
 class CapabilityDeclarationPrerequisiteError(ValueError):
@@ -887,12 +888,18 @@ class NodeControlState:
         return await self._capability_runner.redeclare_if_needed(reason=reason, force=force)
 
     async def rebuild_node_capabilities(self) -> dict:
+        if self._provider_runtime_manager is not None and hasattr(self._provider_runtime_manager, "rebuild_node_capabilities"):
+            payload = self._provider_runtime_manager.rebuild_node_capabilities()
+            if isinstance(payload, dict):
+                return payload
         resolved = self.openai_resolved_capabilities_payload()
+        node_capabilities = self.node_capabilities_payload()
         return {
             "status": "rebuilt",
             "provider_id": "openai",
             "resolved_capabilities": resolved,
-            "task_families": list(resolved.get("task_families") or []),
+            "resolved_tasks": list(node_capabilities.get("enabled_task_capabilities") or node_capabilities.get("resolved_tasks") or []),
+            "node_capabilities": node_capabilities,
         }
 
     def capability_diagnostics_payload(self) -> dict:
@@ -902,13 +909,27 @@ class NodeControlState:
             else {}
         )
         resolved = self.openai_resolved_capabilities_payload()
+        model_features = self.openai_model_features_payload()
+        node_capabilities = self.node_capabilities_payload()
+        try:
+            capability_graph = load_task_graph()
+        except Exception as exc:
+            capability_graph = {"error": str(exc)}
         return {
             "admin": True,
             "generated_at": self._now_iso(),
             "discovered_models": self.openai_provider_model_catalog_payload(),
+            "feature_catalog": model_features,
+            "capability_graph": capability_graph,
             "enabled_models": self.openai_enabled_models_payload(),
             "capability_catalog": self.openai_provider_model_capabilities_payload(),
             "resolved_capabilities": resolved,
+            "resolved_tasks": (
+                node_capabilities.get("enabled_task_capabilities")
+                or node_capabilities.get("resolved_tasks")
+                or []
+            ),
+            "node_capabilities": node_capabilities,
             "classification_model": resolved.get("classification_model"),
             "last_declaration_payload": capability_status.get("last_manifest_payload"),
             "last_declaration_result": capability_status.get("last_declaration_result"),

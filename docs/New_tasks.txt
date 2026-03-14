@@ -44,7 +44,7 @@ Stop processing task when you reach the [STOP] flag!
 Do not edit above this line:
 #######################################################################
 
-[WIP] Task 211: Display capability graph resolution
+[WIP] Task 214: Add validation tests for feature schema
 Create a graph definition file:
 
 capabilities/task_graph.json
@@ -201,7 +201,6 @@ Feature Union
 Resolved Tasks
 Classifier Model Used
 
-[TODO] Task 212: Add diagnostics panel
 Create admin diagnostics view.
 
 Display:
@@ -213,7 +212,6 @@ enabled models
 resolved tasks
 last declaration payload
 
-[TODO] Task 213: Add refresh controls
 Allow manual actions:
 
 refresh provider models
@@ -221,7 +219,6 @@ re-run classification
 recompute capability graph
 redeclare capabilities to Core
 
-[TODO] Task 214: Add validation tests for feature schema
 Test classification JSON:
 
 - unknown feature keys rejected

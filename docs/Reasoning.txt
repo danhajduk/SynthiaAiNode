@@ -648,3 +648,21 @@ Chosen fix: Added backend endpoints for model feature catalog and resolved node 
 What changed: Updated `src/ai_node/runtime/node_control_api.py`, `frontend/src/App.jsx`, `tests/test_node_control_fastapi.py`, and API contract docs.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_node_control_fastapi tests.test_node_control_api tests.test_capability_declaration_runner tests.test_provider_runtime` and `npm --prefix frontend run build` passed.
 ###########
+Task #211
+Step objective: Add a dedicated UI card that surfaces capability graph resolution details.
+Chosen fix: Added a dashboard card titled "Resolved Node Capabilities" with enabled models, feature union, resolved tasks, and classifier model used.
+What changed: Updated `frontend/src/App.jsx`.
+Verification: `npm --prefix frontend run build` passed.
+###########
+Task #212
+Step objective: Expand admin diagnostics to include feature catalog, capability graph, enabled models, resolved tasks, and declaration payload context.
+Chosen fix: Extended diagnostics backend payload and frontend diagnostics panel fields/details with feature catalog and capability graph visibility.
+What changed: Updated `src/ai_node/runtime/node_control_api.py`, `frontend/src/App.jsx`, `tests/test_node_control_fastapi.py`, and API contract docs.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_node_control_fastapi tests.test_node_control_api` and `npm --prefix frontend run build` passed.
+###########
+Task #213
+Step objective: Add explicit manual refresh controls for provider model refresh, classification rerun, capability-graph recompute, and redeclaration to Core.
+Chosen fix: Wired capability rebuild to recompute and persist node capabilities through provider runtime manager, then aligned admin UI control labels/actions with the required workflow and added API test coverage for rebuild/redeclare actions (including admin-token protection).
+What changed: Updated `src/ai_node/providers/runtime_manager.py`, `src/ai_node/runtime/node_control_api.py`, `frontend/src/App.jsx`, and `tests/test_node_control_fastapi.py`.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_node_control_fastapi tests.test_node_control_api` and `npm --prefix frontend run build` passed.
+###########

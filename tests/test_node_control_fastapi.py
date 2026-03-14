@@ -152,6 +152,7 @@ class NodeControlFastApiTests(unittest.TestCase):
         def __init__(self):
             self.refresh_calls = 0
             self.openai_reload_calls = 0
+            self.rebuild_calls = 0
 
         async def refresh(self):
             self.refresh_calls += 1
@@ -174,6 +175,18 @@ class NodeControlFastApiTests(unittest.TestCase):
                 "display_name": display_name,
                 "input_price_per_1m": input_price_per_1m,
                 "output_price_per_1m": output_price_per_1m,
+            }
+
+        def rebuild_node_capabilities(self):
+            self.rebuild_calls += 1
+            return {
+                "status": "rebuilt",
+                "provider_id": "openai",
+                "resolved_tasks": ["task.reasoning", "task.classification"],
+                "node_capabilities": {
+                    "enabled_models": ["gpt-5-mini"],
+                    "enabled_task_capabilities": ["task.reasoning", "task.classification"],
+                },
             }
 
         def pricing_diagnostics_payload(self):
@@ -457,6 +470,9 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertEqual(diagnostics_response.status_code, 200)
             self.assertEqual(diagnostics_response.json()["classification_model"], "gpt-5-mini")
             self.assertIn("last_declaration_payload", diagnostics_response.json())
+            self.assertIn("feature_catalog", diagnostics_response.json())
+            self.assertIn("capability_graph", diagnostics_response.json())
+            self.assertIn("resolved_tasks", diagnostics_response.json())
 
             pricing_diagnostics_response = client.get("/api/providers/openai/pricing/diagnostics")
             self.assertEqual(pricing_diagnostics_response.status_code, 200)
@@ -520,6 +536,15 @@ class NodeControlFastApiTests(unittest.TestCase):
             classification_refresh_response = client.post("/api/providers/openai/models/classification/refresh")
             self.assertEqual(classification_refresh_response.status_code, 200)
             self.assertEqual(classification_refresh_response.json()["redeclare"]["reason"], "capability_catalog_refresh")
+
+            capability_rebuild_response = client.post("/api/capabilities/rebuild")
+            self.assertEqual(capability_rebuild_response.status_code, 200)
+            self.assertEqual(capability_rebuild_response.json()["status"], "rebuilt")
+            self.assertIn("resolved_tasks", capability_rebuild_response.json())
+
+            capability_redeclare_response = client.post("/api/capabilities/redeclare", json={"force_refresh": False})
+            self.assertEqual(capability_redeclare_response.status_code, 200)
+            self.assertEqual(capability_redeclare_response.json()["reason"], "manual_redeclare")
 
             node_recover_response = client.post("/api/node/recover")
             self.assertEqual(node_recover_response.status_code, 200)
@@ -642,6 +667,25 @@ class NodeControlFastApiTests(unittest.TestCase):
                     headers={"X-Synthia-Admin-Token": "admin-token"},
                 )
                 self.assertEqual(authorized_refresh.status_code, 200)
+
+                unauthorized_rebuild = client.post("/api/capabilities/rebuild")
+                self.assertEqual(unauthorized_rebuild.status_code, 403)
+
+                authorized_rebuild = client.post(
+                    "/api/capabilities/rebuild",
+                    headers={"X-Synthia-Admin-Token": "admin-token"},
+                )
+                self.assertEqual(authorized_rebuild.status_code, 200)
+
+                unauthorized_redeclare = client.post("/api/capabilities/redeclare", json={"force_refresh": False})
+                self.assertEqual(unauthorized_redeclare.status_code, 403)
+
+                authorized_redeclare = client.post(
+                    "/api/capabilities/redeclare",
+                    json={"force_refresh": False},
+                    headers={"X-Synthia-Admin-Token": "admin-token"},
+                )
+                self.assertEqual(authorized_redeclare.status_code, 200)
             finally:
                 if old_admin_token is None:
                     os.environ.pop("SYNTHIA_ADMIN_TOKEN", None)
