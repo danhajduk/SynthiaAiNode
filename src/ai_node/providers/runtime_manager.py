@@ -88,6 +88,20 @@ class ProviderRuntimeManager:
 
         self._registry.load(path=self._registry_path)
 
+    def _provider_intelligence_allowed_model_ids(self, *, provider_id: str) -> set[str] | None:
+        normalized_provider_id = str(provider_id or "").strip().lower()
+        if normalized_provider_id != "openai":
+            return None
+        snapshot = self._openai_model_catalog_store.load()
+        if snapshot is None:
+            return None
+        allowed = {
+            str(entry.model_id or "").strip().lower()
+            for entry in snapshot.models
+            if str(entry.model_id or "").strip()
+        }
+        return allowed or None
+
     async def refresh(self) -> dict:
         config = self._loader.load()
         fallback_provider = None
@@ -173,11 +187,14 @@ class ProviderRuntimeManager:
                 continue
             provider_id = str(provider.get("provider_id") or "").strip()
             metrics = metrics_by_provider.get(provider_id) if isinstance(metrics_by_provider, dict) else None
+            allowed_model_ids = self._provider_intelligence_allowed_model_ids(provider_id=provider_id)
             provider_models = []
             for model in provider.get("models") or []:
                 if not isinstance(model, dict):
                     continue
                 model_id = str(model.get("model_id") or "").strip()
+                if allowed_model_ids is not None and model_id.lower() not in allowed_model_ids:
+                    continue
                 model_metrics = (metrics or {}).get("models", {}).get(model_id, {}) if isinstance(metrics, dict) else {}
                 provider_models.append(
                     {

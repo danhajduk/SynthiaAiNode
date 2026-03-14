@@ -151,6 +151,36 @@ class ProviderRuntimeTests(unittest.IsolatedAsyncioTestCase):
             payload = runtime.openai_model_catalog_payload()
             self.assertEqual([item["model_id"] for item in payload["models"]], ["gpt-5-mini", "omni-moderation-2024-09-26"])
 
+    async def test_intelligence_payload_only_exports_filtered_openai_models(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = ProviderRuntimeManager(
+                logger=logging.getLogger("provider-runtime-test"),
+                provider_selection_store=_SelectionStore(enabled=["local"]),
+                registry_path=str(Path(tmp) / "provider_registry.json"),
+                metrics_path=str(Path(tmp) / "provider_metrics.json"),
+                provider_model_catalog_path=str(Path(tmp) / "provider_models.json"),
+            )
+            runtime._openai_model_catalog_store.save_from_model_ids(model_ids=["gpt-5-mini", "whisper-1"])  # noqa: SLF001
+            runtime._registry.register_provider(provider_id="openai", adapter=MockProviderAdapter(provider_id="openai"))  # noqa: SLF001
+            runtime._registry.set_provider_health(provider_id="openai", payload={"availability": "available"})  # noqa: SLF001
+            runtime._registry.set_models_for_provider(  # noqa: SLF001
+                provider_id="openai",
+                models=[
+                    ModelCapability(model_id="gpt-5-mini", display_name="gpt-5-mini", created=1740950000),
+                    ModelCapability(model_id="whisper-1", display_name="whisper-1", created=1677610602),
+                    ModelCapability(model_id="gpt-5.4-pro-2026-03-05", display_name="gpt-5.4-pro-2026-03-05", created=1741132800),
+                    ModelCapability(model_id="gpt-5-chat-latest", display_name="gpt-5-chat-latest", created=1741200000),
+                ],
+            )
+
+            payload = runtime.intelligence_payload()
+
+            self.assertEqual(payload["providers"][0]["provider_id"], "openai")
+            self.assertEqual(
+                [item["model_id"] for item in payload["providers"][0]["models"]],
+                ["gpt-5-mini", "whisper-1"],
+            )
+
     async def test_openai_enabled_models_and_resolved_capabilities_payloads(self):
         with tempfile.TemporaryDirectory() as tmp:
             runtime = ProviderRuntimeManager(

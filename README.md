@@ -127,6 +127,7 @@ UI behavior:
 - Filtered OpenAI provider models are also persisted locally in `data/provider_models.json`.
 - After filtered models are refreshed, the node automatically picks the smallest available OpenAI LLM for capability classification and stores the batch result in `data/provider_model_capabilities.json`.
 - Enabled provider models are persisted in `data/provider_enabled_models.json`, and only enabled models contribute to the resolved node capability summary.
+- The runtime provider-intelligence report now exports only the filtered OpenAI catalog to Core, not the full raw `/v1/models` list.
 - In Capability Summary, selected models are marked with a green check.
 
 Task capability selection endpoints:
