@@ -165,3 +165,4 @@ Task 173: Expose pricing catalog to the budget engine - Completed on 03/13/2026 
 Task 174: Add admin diagnostics endpoint/view - Completed on 03/13/2026 14:25
 Task 175: Add documentation - Completed on 03/13/2026 14:25
 Task 176: Add future-proof parser abstraction - Completed on 03/13/2026 14:25
+Task 177: Add "Setup AI Provider" navigation ( remove the openai creds btn) - Completed on 03/13/2026 18:36

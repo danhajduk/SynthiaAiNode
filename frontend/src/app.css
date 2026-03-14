@@ -10,6 +10,15 @@
   margin-bottom: 16px;
 }
 
+.provider-page-shell {
+  display: grid;
+  place-items: start center;
+}
+
+.provider-page-card {
+  width: min(860px, 100%);
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

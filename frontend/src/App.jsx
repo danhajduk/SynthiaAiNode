@@ -58,6 +58,7 @@ function formatCreatedAt(value) {
 }
 
 export default function App() {
+  const [routeHash, setRouteHash] = useState(() => window.location.hash || "#/");
   const [backendStatus, setBackendStatus] = useState("loading");
   const [pendingApprovalUrl, setPendingApprovalUrl] = useState("");
   const [nodeId, setNodeId] = useState("");
@@ -219,6 +220,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    function onHashChange() {
+      setRouteHash(window.location.hash || "#/");
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  useEffect(() => {
     if (backendStatus === "capability_setup_pending" && !capabilityPopupDismissed) {
       setShowCapabilitySetupPopup(true);
       return;
@@ -312,6 +321,7 @@ export default function App() {
   const isUnconfigured = backendStatus === "unconfigured";
   const isPendingApproval = backendStatus === "pending_approval";
   const isCapabilitySetupPending = backendStatus === "capability_setup_pending";
+  const isProviderSetupRoute = routeHash === "#/providers/openai";
   const openaiCredentialSummary = providerCredentials?.credentials || {};
   const hasCapabilityRegistration = Boolean(uiState.capabilitySummary.capabilityDeclarationTimestamp);
   const canManageOpenAiCredentials =
@@ -336,6 +346,14 @@ export default function App() {
     if (value === "in_progress") return "In Progress";
     if (value === "failed") return "Failed";
     return "Pending";
+  }
+
+  function navigateToDashboard() {
+    window.location.hash = "#/";
+  }
+
+  function navigateToOpenAiProviderSetup() {
+    window.location.hash = "#/providers/openai";
   }
 
   async function onCopyNodeId() {
@@ -1036,7 +1054,34 @@ export default function App() {
         {error ? <p className="error">{error}</p> : null}
       </section>
 
-      {isUnconfigured ? (
+      {isProviderSetupRoute ? (
+        <section className="provider-page-shell">
+          <article className="card provider-page-card">
+            <CardHeader
+              title="Setup AI Provider"
+              subtitle="Configure OpenAI outside of the main dashboard so provider setup stays focused and separate."
+            />
+            <div className="state-grid">
+              <span>Provider</span>
+              <code>openai</code>
+              <span>Saved API Key</span>
+              <code>{openaiCredentialSummary.api_key_hint || "not_saved"}</code>
+              <span>Saved Model</span>
+              <code>{openaiCredentialSummary.default_model_id || "not_selected"}</code>
+              <span>Updated</span>
+              <code>{openaiCredentialSummary.updated_at || "never"}</code>
+            </div>
+            <p className="muted">
+              This dedicated provider page replaces the old dashboard popup entry point. Provider setup details will live here.
+            </p>
+            <div className="row">
+              <button className="btn" type="button" onClick={navigateToDashboard}>
+                Back To Dashboard
+              </button>
+            </div>
+          </article>
+        </section>
+      ) : isUnconfigured ? (
         <section className="card setup-card">
           <h2>Setup Node</h2>
           <p className="muted">
@@ -1194,14 +1239,9 @@ export default function App() {
                 className="btn btn-primary"
                 type="button"
                 disabled={!canManageOpenAiCredentials}
-                onClick={() => {
-                  setShowProviderCredentialsPopup(true);
-                  setOpenaiApiKey("");
-                  setOpenaiAdminKey("");
-                  setOpenaiUserIdentifier(providerCredentials?.credentials?.user_identifier || "");
-                }}
+                onClick={navigateToOpenAiProviderSetup}
               >
-                OpenAI Credentials
+                Setup AI Provider
               </button>
               {!canManageOpenAiCredentials ? (
                 <span className="muted tiny">Available after capability registration completes with OpenAI enabled.</span>
@@ -1242,7 +1282,7 @@ export default function App() {
                     ))}
                   </div>
                 ) : (
-                  <p className="muted tiny">No model pricing cached yet. Open the credential popup and refresh discovery.</p>
+                  <p className="muted tiny">No model pricing cached yet. Open Setup AI Provider and reload discovery.</p>
                 )}
               </div>
             ) : null}
