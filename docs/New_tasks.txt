@@ -44,10 +44,7 @@ Stop processing task when you reach the [STOP] flag!
 Do not edit above this line:
 #######################################################################
 
-[STOP]
-
-
-[TODO] Task 183: Select classification model
+[WIP] Task 183: Select classification model
 Choose the smallest available LLM for capability classification.
 
 Priority order:
@@ -60,7 +57,7 @@ Fallback:
 Store selected classification model.
 
 [TODO] Task 184: Implement capability classification prompt
-Create a structured prompt that asks the classification model to map capabilities.
+Create a structured prompt that asks the classification model to map capabilities. 
 
 Capabilities to classify:
 
@@ -104,7 +101,7 @@ recommended_for options:
 The classification prompt must instruct the model to use only these values.
 
 [TODO] Task 186: Run capability classification
-For each filtered model:
+For each filtered model as a batch.
 
 - Send classification request to the chosen nano/mini model.
 - Parse JSON result.
@@ -136,6 +133,8 @@ cost_tier
 recommended_for
 
 Store timestamp and classification_model used.
+
+[STOP]
 
 [TODO] Task 188: Add capability mapping UI
 Display discovered models to the user.

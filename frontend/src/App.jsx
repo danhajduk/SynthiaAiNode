@@ -28,6 +28,16 @@ const TASK_CAPABILITY_OPTIONS = [
   "task.generation.image",
 ];
 const OPENAI_TOKEN_FORMAT = /^[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9._-]+)+$/;
+const OPENAI_MODEL_GROUPS = [
+  ["llm", "LLM"],
+  ["image_generation", "Image Generation"],
+  ["video_generation", "Video Generation"],
+  ["realtime_voice", "Realtime Voice"],
+  ["speech_to_text", "STT"],
+  ["text_to_speech", "TTS"],
+  ["embeddings", "Embeddings"],
+  ["moderation", "Moderation"],
+];
 
 function ThemeToggle() {
   const [theme, setLocalTheme] = useState(getTheme());
@@ -57,6 +67,11 @@ function formatCreatedAt(value) {
     return "unknown";
   }
   return new Date(value * 1000).toISOString().slice(0, 10);
+}
+
+function parseIsoTimestamp(value) {
+  const parsed = Date.parse(String(value || ""));
+  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 export default function App() {
@@ -338,6 +353,19 @@ export default function App() {
     hasCapabilityRegistration && uiState.capabilitySummary.enabledProviders.includes("openai");
   const selectedOpenaiModel = latestOpenaiModels.find((model) => model.model_id === (selectedOpenaiModelIds[0] || "")) || null;
   const openaiModelPriceById = Object.fromEntries(latestOpenaiModels.map((model) => [model.model_id, model.pricing || {}]));
+  const openaiModelCreatedById = Object.fromEntries(latestOpenaiModels.map((model) => [model.model_id, model.created || 0]));
+  const groupedOpenAiCatalogModels = OPENAI_MODEL_GROUPS.map(([family, label]) => ({
+    family,
+    label,
+    models: openaiCatalogModels
+      .filter((model) => model.family === family)
+      .slice()
+      .sort(
+        (left, right) =>
+          (Number(openaiModelCreatedById[right.model_id] || 0) || parseIsoTimestamp(right.discovered_at)) -
+          (Number(openaiModelCreatedById[left.model_id] || 0) || parseIsoTimestamp(left.discovered_at))
+      ),
+  })).filter((group) => group.models.length > 0);
   const pricingReviewModelId = pricingReviewModelIds[pricingReviewIndex] || "";
   const pricingReviewModel = latestOpenaiModels.find((model) => model.model_id === pricingReviewModelId) || null;
   const setupReadinessFlags = uiState.capabilitySummary.setupReadinessFlags || {};
@@ -844,7 +872,8 @@ export default function App() {
         </section>
       ) : null}
       {null}
-      <section className="card hero">
+      {!isProviderSetupRoute ? (
+        <section className="card hero">
         <h1>Synthia AI Node</h1>
         <p className="muted">Node setup and onboarding controls</p>
         <div className="row">
@@ -878,7 +907,8 @@ export default function App() {
           </button>
         </div>
         {error ? <p className="error">{error}</p> : null}
-      </section>
+        </section>
+      ) : null}
 
       {isProviderSetupRoute ? (
         <section className="provider-page-shell">
@@ -974,42 +1004,50 @@ export default function App() {
                   {savingModelPreference ? "Saving selections..." : `${openaiCatalogModels.length} filtered models`}
                 </span>
               </div>
-              {openaiCatalogModels.length ? (
-                <div className="model-list mini-card-grid">
-                  {openaiCatalogModels.map((model) => (
-                    <article
-                      key={model.model_id}
-                      className={`model-card mini-model-card ${selectedOpenaiModelIds.includes(model.model_id) ? "is-selected" : ""}`}
-                    >
-                      <div className="model-card-header">
-                        <strong>{model.display_name || model.model_id}</strong>
-                        <StatusBadge value={model.status || "available"} />
+              {groupedOpenAiCatalogModels.length ? (
+                <div className="grouped-model-sections">
+                  {groupedOpenAiCatalogModels.map((group) => (
+                    <section key={group.family} className="model-group-section">
+                      <div className="model-section-header">
+                        <h3>{group.label}</h3>
+                        <span className="muted tiny">{group.models.length} models</span>
                       </div>
-                      <div className="state-grid compact-grid">
-                        <span>Model ID</span>
-                        <code>{model.model_id}</code>
-                        <span>Family</span>
-                        <code>{model.family}</code>
-                        <span>Discovered</span>
-                        <code>{model.discovered_at ? model.discovered_at.slice(0, 10) : "unknown"}</code>
-                        <span>Input Price</span>
-                        <code>{formatPrice(openaiModelPriceById[model.model_id]?.input_per_1m_tokens)}</code>
-                        <span>Output Price</span>
-                        <code>{formatPrice(openaiModelPriceById[model.model_id]?.output_per_1m_tokens)}</code>
+                      <div className="model-list mini-card-grid">
+                        {group.models.map((model) => (
+                          <article
+                            key={model.model_id}
+                            className={`model-card mini-model-card ${selectedOpenaiModelIds.includes(model.model_id) ? "is-selected" : ""}`}
+                          >
+                            <div className="model-card-header">
+                              <strong>{model.model_id}</strong>
+                              <StatusBadge value={selectedOpenaiModelIds.includes(model.model_id) ? "selected" : "available"} />
+                            </div>
+                            <div className="state-grid compact-grid">
+                              <span>Model ID</span>
+                              <code>{model.model_id}</code>
+                              <span>Discovered</span>
+                              <code>{model.discovered_at ? model.discovered_at.slice(0, 10) : "unknown"}</code>
+                              <span>Input Price</span>
+                              <code>{formatPrice(openaiModelPriceById[model.model_id]?.input_per_1m_tokens)}</code>
+                              <span>Output Price</span>
+                              <code>{formatPrice(openaiModelPriceById[model.model_id]?.output_per_1m_tokens)}</code>
+                            </div>
+                            <div className="row model-card-actions">
+                              <button
+                                className={`btn ${selectedOpenaiModelIds.includes(model.model_id) ? "btn-primary" : ""}`}
+                                type="button"
+                                onClick={() => onToggleOpenAiModel(model.model_id)}
+                              >
+                                {selectedOpenaiModelIds.includes(model.model_id) ? "Selected" : "Add Model"}
+                              </button>
+                              <button className="btn" type="button" onClick={() => openSingleModelPricing(model.model_id)}>
+                                Set Price
+                              </button>
+                            </div>
+                          </article>
+                        ))}
                       </div>
-                      <div className="row">
-                        <button
-                          className={`btn ${selectedOpenaiModelIds.includes(model.model_id) ? "btn-primary" : ""}`}
-                          type="button"
-                          onClick={() => onToggleOpenAiModel(model.model_id)}
-                        >
-                          {selectedOpenaiModelIds.includes(model.model_id) ? "Selected" : "Add Model"}
-                        </button>
-                        <button className="btn" type="button" onClick={() => openSingleModelPricing(model.model_id)}>
-                          Set Price
-                        </button>
-                      </div>
-                    </article>
+                    </section>
                   ))}
                 </div>
               ) : (
@@ -1017,78 +1055,6 @@ export default function App() {
                   No OpenAI models discovered yet. Save provider setup and reload discovery to populate this list.
                 </p>
               )}
-              {selectedOpenaiModel ? (
-                <form className="manual-pricing-form" onSubmit={onSaveManualPricing}>
-                  <div className="model-section-header">
-                    <h3>Manual Pricing</h3>
-                    <span className="muted tiny">
-                      Primary: <code>{selectedOpenaiModel.model_id}</code>
-                    </span>
-                  </div>
-                  <p className="muted tiny">
-                    Manual pricing uses the first selected model as primary. You can also apply the same values to all selected models.
-                  </p>
-                  <div className="state-grid">
-                    <span>Current Input</span>
-                    <code>{formatPrice(selectedOpenaiModel.pricing?.input_per_1m_tokens)}</code>
-                    <span>Current Output</span>
-                    <code>{formatPrice(selectedOpenaiModel.pricing?.output_per_1m_tokens)}</code>
-                  </div>
-                  <label>
-                    Manual Input Price / 1M
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={manualPricingInput}
-                      onChange={(event) => setManualPricingInput(event.target.value)}
-                      placeholder="e.g. 3.000"
-                    />
-                  </label>
-                  <label>
-                    Manual Output Price / 1M
-                    <input
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      value={manualPricingOutput}
-                      onChange={(event) => setManualPricingOutput(event.target.value)}
-                      placeholder="e.g. 15.000"
-                    />
-                  </label>
-                  <div className="row">
-                    <button className="btn btn-primary" type="submit" disabled={savingManualPricing}>
-                      {savingManualPricing ? "Saving..." : "Save Manual Price"}
-                    </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => startPricingReview(selectedOpenaiModelIds)}
-                      disabled={!selectedOpenaiModelIds.length}
-                    >
-                      Review Selected Model Prices
-                    </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={onSaveManualPricingForSelected}
-                      disabled={savingBulkManualPricing || !selectedOpenaiModelIds.length}
-                    >
-                      {savingBulkManualPricing ? "Updating All..." : "Apply To All Selected Models"}
-                    </button>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        setManualPricingInput("");
-                        setManualPricingOutput("");
-                      }}
-                    >
-                      Skip
-                    </button>
-                  </div>
-                </form>
-              ) : null}
             </div>
           </article>
         </section>

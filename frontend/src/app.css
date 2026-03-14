@@ -74,6 +74,9 @@
   border-radius: var(--radius-sm);
   padding: 12px;
   background: hsl(var(--color-bg));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .mini-model-card.is-selected {
@@ -113,6 +116,20 @@
   gap: 12px;
   flex-wrap: wrap;
   margin-bottom: 10px;
+}
+
+.grouped-model-sections {
+  display: grid;
+  gap: 18px;
+}
+
+.model-group-section {
+  display: grid;
+  gap: 10px;
+}
+
+.model-card-actions {
+  margin-top: auto;
 }
 
 .manual-pricing-form {
