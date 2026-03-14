@@ -44,7 +44,7 @@ Stop processing task when you reach the [STOP] flag!
 Do not edit above this line:
 #######################################################################
 
-[WIP] Task 215: Add capability graph resolution tests
+[WIP] Task 216: Add declaration integration tests
 Create a graph definition file:
 
 capabilities/task_graph.json
@@ -232,7 +232,6 @@ Test graph resolver:
 - missing features
 - partial graph matches
 
-[TODO] Task 216: Add declaration integration tests
 Verify:
 
 node capabilities resolve correctly

@@ -79,6 +79,60 @@ class CapabilityResolverTests(unittest.TestCase):
         self.assertTrue(payload["feature_union"]["speech_to_text"])
         self.assertEqual(payload["resolved_tasks"], ["task.chat", "task.reasoning", "task.speech_to_text"])
 
+    def test_resolve_node_capabilities_single_model(self):
+        payload = resolve_node_capabilities(
+            enabled_models=["gpt-5-mini"],
+            model_feature_catalog={"entries": [{"model_id": "gpt-5-mini", "features": {"reasoning": True}}]},
+            task_graph={"tasks": {"task.reasoning": {"all_of": ["reasoning"]}, "task.chat": {"all_of": ["chat"]}}},
+        )
+        self.assertEqual(payload["enabled_models"], ["gpt-5-mini"])
+        self.assertEqual(payload["resolved_tasks"], ["task.reasoning"])
+
+    def test_resolve_node_capabilities_multiple_models_unions_features(self):
+        payload = resolve_node_capabilities(
+            enabled_models=["gpt-5-mini", "gpt-4o-mini"],
+            model_feature_catalog={
+                "entries": [
+                    {"model_id": "gpt-5-mini", "features": {"reasoning": True}},
+                    {"model_id": "gpt-4o-mini", "features": {"chat": True}},
+                ]
+            },
+            task_graph={
+                "tasks": {
+                    "task.reasoning": {"all_of": ["reasoning"]},
+                    "task.chat": {"all_of": ["chat"]},
+                    "task.task_planning": {"all_of": ["planning"]},
+                }
+            },
+        )
+        self.assertEqual(payload["resolved_tasks"], ["task.chat", "task.reasoning"])
+
+    def test_resolve_node_capabilities_missing_features_disables_tasks(self):
+        payload = resolve_node_capabilities(
+            enabled_models=["gpt-5-mini"],
+            model_feature_catalog={"entries": [{"model_id": "gpt-5-mini", "features": {"chat": True}}]},
+            task_graph={
+                "tasks": {
+                    "task.reasoning": {"all_of": ["reasoning"]},
+                    "task.translation": {"all_of": ["translation"]},
+                }
+            },
+        )
+        self.assertEqual(payload["resolved_tasks"], [])
+
+    def test_resolve_task_capabilities_partial_graph_match_only_enables_satisfied_nodes(self):
+        resolved = resolve_task_capabilities(
+            feature_union={"chat": True, "reasoning": False, "tool_calling": True},
+            task_graph={
+                "tasks": {
+                    "task.chat": {"all_of": ["chat"]},
+                    "task.reasoning": {"all_of": ["reasoning"]},
+                    "task.tool_usage": {"all_of": ["tool_calling"]},
+                }
+            },
+        )
+        self.assertEqual(resolved, ["task.chat", "task.tool_usage"])
+
 
 if __name__ == "__main__":
     unittest.main()

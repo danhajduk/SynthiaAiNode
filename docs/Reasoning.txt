@@ -672,3 +672,9 @@ Chosen fix: Added schema test coverage to enforce object-shaped feature flag pay
 What changed: Updated `tests/test_model_feature_schema.py`.
 Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_model_feature_schema tests.test_model_capability_catalog tests.test_model_feature_catalog` passed.
 ###########
+Task #215
+Step objective: Add explicit capability graph resolver coverage for single-model, multi-model, missing-feature, and partial-match scenarios.
+Chosen fix: Extended resolver tests to verify graph resolution behavior across all requested input patterns with deterministic expected task outputs.
+What changed: Updated `tests/test_capability_resolver.py`.
+Verification: `PYTHONPATH=src .venv/bin/python -m unittest tests.test_capability_resolver tests.test_feature_union tests.test_provider_runtime` passed.
+###########
