@@ -119,7 +119,9 @@ This is the canonical source-of-truth contract for:
 
 ### Read latest OpenAI models
 
-- `GET /api/providers/openai/models/latest?limit=9`
+- `GET /api/providers/openai/models/latest?limit=<n>`
+- Query:
+  - `limit: integer` optional; API default is `3`
 - Response:
   - `provider_id: "openai"`
   - `models[]`
@@ -129,6 +131,9 @@ This is the canonical source-of-truth contract for:
     - `status`
     - `pricing.input_per_1m_tokens`
     - `pricing.output_per_1m_tokens`
+    - `pricing.pricing_basis`
+    - `pricing.normalized_price`
+    - `pricing.normalized_unit`
 
 ### Read filtered OpenAI provider model catalog
 
@@ -140,6 +145,9 @@ This is the canonical source-of-truth contract for:
     - `family`
     - `discovered_at`
     - `enabled`
+  - `ui_models[]`
+    - representative subset of `models[]` used by `/#/providers/openai`
+    - same object shape as `models[]`
 
 For OpenAI, this response only includes regular base-model families used for normal LLM selection. Date-stamped snapshots such as `gpt-5.4-pro-2026-03-05`, legacy snapshots such as `gpt-4-0613`, and specialized variants containing tags like `latest`, `preview`, `realtime`, `audio`, `codex`, or `search` are filtered out in favor of canonical model IDs such as `gpt-5.4-pro`.
 
@@ -164,7 +172,7 @@ For OpenAI, this response only includes regular base-model families used for nor
     - `coding_strength`
     - `speed_tier`
     - `cost_tier`
-    - `recommended_for[]`
+    - `feature_flags` (boolean feature map)
 
 ### Read OpenAI model feature catalog
 
@@ -272,10 +280,13 @@ For OpenAI, this response only includes regular base-model families used for nor
   - `force_refresh: boolean` (default `true`)
 - Success:
   - `provider_id: "openai"`
-  - `status: "manual_only"`
+  - `status: "manual_only" | "refreshed" | "unchanged"`
   - `changed: boolean`
   - `snapshot: object | null`
   - `notes?: string[]`
+- Behavior:
+  - returns `status = "manual_only"` when `SYNTHIA_OPENAI_API_PRICING_FETCH_ENABLED` is unset or `false`
+  - when live pricing fetch is enabled, extraction is run only for filtered target model IDs
 - Error:
   - `400` when pricing refresh runtime is unavailable.
 
@@ -292,6 +303,9 @@ For OpenAI, this response only includes regular base-model families used for nor
   - `status: "manual_saved"`
   - `model_id`
   - `snapshot`
+- Behavior:
+  - request payload writes token-style manual prices only
+  - non-token families are still rendered in the UI from normalized pricing fields persisted in the pricing catalog snapshot
 - Error:
   - `400` when manual pricing persistence fails or no prices are provided.
 
