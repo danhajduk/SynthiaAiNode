@@ -255,12 +255,12 @@ class UserSystemdServiceManager:
         return rss_pages * float(page_size)
 
     def _restart_unit(self, unit: str) -> None:
-        subprocess.run(
+        subprocess.Popen(
             ["systemctl", "--user", "restart", unit],
-            check=True,
-            capture_output=True,
-            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             env=self._systemd_env(),
+            start_new_session=True,
         )
 
     def _start_unit(self, unit: str) -> None:
