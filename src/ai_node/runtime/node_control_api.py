@@ -1214,6 +1214,8 @@ class NodeControlState:
             "startup_mode": self._startup_mode,
             "paired_core_id": str(trust_state.get("paired_core_id") or "").strip() or None,
             "core_api_endpoint": str(trust_state.get("core_api_endpoint") or "").strip() or None,
+            "boot_order": 10,
+            "node_dependencies": ["mqtt"],
             "services": self.service_status_payload().get("services"),
         }
         return {

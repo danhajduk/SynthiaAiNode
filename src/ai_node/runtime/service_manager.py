@@ -148,6 +148,7 @@ class UserSystemdServiceManager:
             "cpu_percent": cpu_percent,
             "mem_percent": mem_percent,
             "pid": pid or None,
+            "boot_order": 10 if service_id == "backend" else 20,
         }
 
     def _process_cpu_percent(self, unit: str, pid: int) -> float | None:
