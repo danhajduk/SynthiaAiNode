@@ -41,6 +41,9 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(is_openai_date_versioned_model_id("gpt-4-0613"))
         self.assertFalse(is_openai_date_versioned_model_id("gpt-5.4-pro"))
         self.assertTrue(is_regular_openai_model_id("gpt-5.4-pro"))
+        self.assertTrue(is_regular_openai_model_id("gpt-image-1.5"))
+        self.assertTrue(is_regular_openai_model_id("gpt-image-1-mini"))
+        self.assertFalse(is_regular_openai_model_id("gpt-image-2"))
         self.assertFalse(is_regular_openai_model_id("gpt-5.3-chat-latest"))
         self.assertFalse(is_regular_openai_model_id("gpt-4o-realtime-preview"))
         self.assertFalse(is_regular_openai_model_id("gpt-4-0613"))
@@ -855,6 +858,28 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(merged_models[0].base_model_id, "gpt-5.4-pro")
             self.assertEqual(merged_models[0].pricing_input, 3.0)
             self.assertEqual(merged_models[0].pricing_output, 15.0)
+
+    async def test_manual_pricing_uses_image_generation_units_for_image_models(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = OpenAIPricingCatalogService(
+                logger=logging.getLogger("openai-pricing-test"),
+                catalog_path=str(Path(tmp) / "provider_model_pricing.json"),
+                overrides_path=str(Path(tmp) / "provider_model_pricing_overrides.json"),
+                manual_config_path=str(Path(tmp) / "openai-pricing.yaml"),
+            )
+
+            service.save_manual_pricing(
+                model_id="gpt-image-1-mini",
+                input_price_per_1m=None,
+                output_price_per_1m=0.08,
+            )
+
+            pricing = get_openai_model_pricing("gpt-image-1-mini", pricing_service=service)
+            self.assertEqual(pricing["pricing_basis"], "per_image")
+            self.assertEqual(pricing["normalized_unit"], "medium_1024x1536_per_image")
+            self.assertEqual(pricing["normalized_price"], 0.08)
+            self.assertIsNone(pricing["input_per_1m_tokens"])
+            self.assertIsNone(pricing["output_per_1m_tokens"])
 
     async def test_builtin_fallback_pricing_for_current_gpt_54_models(self):
         with tempfile.TemporaryDirectory() as tmp:

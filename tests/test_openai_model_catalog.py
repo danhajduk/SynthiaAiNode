@@ -14,6 +14,7 @@ class OpenAIProviderModelCatalogTests(unittest.TestCase):
     def test_classify_supported_families(self):
         self.assertEqual(classify_openai_model_family("gpt-5.4-mini"), "llm")
         self.assertEqual(classify_openai_model_family("gpt-image-1-mini"), "image_generation")
+        self.assertEqual(classify_openai_model_family("gpt-image-1.5"), "image_generation")
         self.assertEqual(classify_openai_model_family("sora-2"), "video_generation")
         self.assertEqual(classify_openai_model_family("gpt-realtime-1.5"), "realtime_voice")
         self.assertEqual(classify_openai_model_family("whisper-1"), "speech_to_text")
@@ -31,6 +32,8 @@ class OpenAIProviderModelCatalogTests(unittest.TestCase):
                 "gpt-5.4-nano",
                 "gpt-image-1",
                 "gpt-image-1-mini",
+                "gpt-image-1.5",
+                "gpt-image-2",
                 "sora-2",
                 "sora-2-pro",
                 "gpt-realtime-1.5",
@@ -48,6 +51,7 @@ class OpenAIProviderModelCatalogTests(unittest.TestCase):
                 ("text-embedding-3-large", "embeddings"),
                 ("gpt-image-1", "image_generation"),
                 ("gpt-image-1-mini", "image_generation"),
+                ("gpt-image-1.5", "image_generation"),
                 ("gpt-4.1", "llm"),
                 ("gpt-5", "llm"),
                 ("gpt-5-pro", "llm"),

@@ -9,6 +9,7 @@ import httpx
 from ai_node.providers.base import ProviderAdapter
 from ai_node.providers.models import ModelCapability, UnifiedExecutionRequest, UnifiedExecutionResponse, UnifiedExecutionUsage
 from ai_node.providers.openai_catalog import OpenAIPricingCatalogService, get_openai_model_pricing
+from ai_node.providers.openai_model_catalog import OPENAI_IMAGE_GENERATION_MODEL_IDS
 from ai_node.capabilities.task_families import TASK_CLASSIFICATION, TASK_CLASSIFICATION_TEXT
 
 
@@ -198,6 +199,75 @@ class OpenAIProviderAdapter(ProviderAdapter):
             return str(error_detail).strip() or f"http_{status_code}"
         return f"http_{status_code}"
 
+    @staticmethod
+    def _is_image_generation_request(request: UnifiedExecutionRequest, *, model: str) -> bool:
+        task_family = str(request.task_family or "").strip().lower()
+        normalized_model = str(model or "").strip().lower()
+        return task_family == "task.image_generation" or normalized_model in OPENAI_IMAGE_GENERATION_MODEL_IDS
+
+    @staticmethod
+    def _image_generation_payload(*, request: UnifiedExecutionRequest, model: str) -> dict[str, Any]:
+        prompt = str(request.prompt or "").strip()
+        if not prompt and request.messages:
+            prompt = "\n\n".join(
+                str(message.get("content") or "").strip()
+                for message in request.messages
+                if isinstance(message, dict) and str(message.get("content") or "").strip()
+            ).strip()
+        if not prompt:
+            raise ValueError("image_generation_prompt_required")
+        normalized_model = str(model or "").strip().lower()
+        if normalized_model not in OPENAI_IMAGE_GENERATION_MODEL_IDS:
+            raise ValueError("openai_image_generation_model_required")
+        metadata = request.metadata if isinstance(request.metadata, dict) else {}
+        payload: dict[str, Any] = {
+            "model": normalized_model,
+            "prompt": prompt,
+        }
+        n = metadata.get("n")
+        if isinstance(n, int) and n > 0:
+            payload["n"] = min(n, 10)
+        for key in ("size", "quality", "background", "output_format"):
+            value = str(metadata.get(key) or "").strip()
+            if value:
+                payload[key] = value
+        return payload
+
+    @staticmethod
+    def _image_generation_output(data: Any) -> str:
+        items = data.get("data") if isinstance(data, dict) else []
+        images = []
+        if isinstance(items, list):
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                image_payload = {}
+                if str(item.get("b64_json") or "").strip():
+                    image_payload["b64_json"] = str(item.get("b64_json"))
+                if str(item.get("url") or "").strip():
+                    image_payload["url"] = str(item.get("url"))
+                if str(item.get("revised_prompt") or "").strip():
+                    image_payload["revised_prompt"] = str(item.get("revised_prompt"))
+                if image_payload:
+                    images.append(image_payload)
+        output = {"images": images}
+        if isinstance(data, dict) and data.get("created") is not None:
+            output["created"] = data.get("created")
+        return json.dumps(output, sort_keys=True)
+
+    def _estimate_image_generation_cost(self, *, model_id: str, image_count: int) -> float | None:
+        pricing = get_openai_model_pricing(model_id, pricing_service=self._pricing_catalog_service)
+        if not isinstance(pricing, dict):
+            return None
+        if str(pricing.get("pricing_status") or "").strip() not in {"ok", "manual"}:
+            return None
+        if str(pricing.get("pricing_basis") or "").strip() != "per_image":
+            return None
+        normalized_price = pricing.get("normalized_price")
+        if not isinstance(normalized_price, (int, float)):
+            return None
+        return max(int(image_count), 0) * float(normalized_price)
+
     async def health_check(self) -> dict[str, Any]:
         if not self._api_key:
             self._metrics["health"] = {
@@ -298,6 +368,8 @@ class OpenAIProviderAdapter(ProviderAdapter):
     async def execute_prompt(self, request: UnifiedExecutionRequest) -> UnifiedExecutionResponse:
         started = time.perf_counter()
         model = str(request.requested_model or "").strip() or self._default_model_id
+        if self._is_image_generation_request(request, model=model):
+            return await self._execute_image_generation(request=request, model=model, started=started)
         # Classification calls are batch-oriented and often exceed the regular request timeout.
         request_timeout = max(self._timeout_seconds, 90.0) if request.task_family in {TASK_CLASSIFICATION, TASK_CLASSIFICATION_TEXT} else self._timeout_seconds
         request_recorded = False
@@ -384,6 +456,86 @@ class OpenAIProviderAdapter(ProviderAdapter):
                 error=str(exc).strip() or type(exc).__name__,
             )
             raise RuntimeError(str(exc).strip() or "openai_execute_failed") from exc
+
+    async def _execute_image_generation(
+        self,
+        *,
+        request: UnifiedExecutionRequest,
+        model: str,
+        started: float,
+    ) -> UnifiedExecutionResponse:
+        request_recorded = False
+        failure_recorded = False
+        payload = self._image_generation_payload(request=request, model=model)
+        url = f"{self._base_url}/images/generations"
+        try:
+            request_headers = self._headers()
+            async with httpx.AsyncClient(timeout=max(self._timeout_seconds, 90.0)) as client:
+                response = await client.post(url, headers=request_headers, json=payload)
+            self._metrics["calls"] += 1
+            request_recorded = True
+            data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
+            self._write_debug_aopenai_log(
+                request=request,
+                url=url,
+                request_headers=request_headers,
+                request_payload=payload,
+                response_status=response.status_code,
+                response_payload=data,
+            )
+            if response.status_code >= 400:
+                self._metrics["failures"] += 1
+                failure_recorded = True
+                message = self._error_message_from_payload(data=data, status_code=response.status_code)
+                raise RuntimeError(message)
+
+            usage_raw = data.get("usage") if isinstance(data, dict) else {}
+            usage = UnifiedExecutionUsage(
+                prompt_tokens=int(
+                    (usage_raw or {}).get("input_tokens") or (usage_raw or {}).get("prompt_tokens") or 0
+                ),
+                cached_input_tokens=0,
+                completion_tokens=int(
+                    (usage_raw or {}).get("output_tokens") or (usage_raw or {}).get("completion_tokens") or 0
+                ),
+                total_tokens=int((usage_raw or {}).get("total_tokens") or 0),
+            )
+            image_count = (
+                len(data.get("data") or [])
+                if isinstance(data, dict) and isinstance(data.get("data"), list)
+                else 0
+            )
+            latency_ms = round((time.perf_counter() - started) * 1000.0, 3)
+            return UnifiedExecutionResponse(
+                provider_id=self.provider_id,
+                model_id=str(payload["model"]),
+                output_text=self._image_generation_output(data),
+                finish_reason="stop",
+                usage=usage,
+                latency_ms=latency_ms,
+                estimated_cost=self._estimate_image_generation_cost(
+                    model_id=str(payload["model"]),
+                    image_count=image_count,
+                ),
+                raw_provider_response_ref=(
+                    f"openai:{data.get('id') or _iso_now()}"
+                    if isinstance(data, dict)
+                    else f"openai:{_iso_now()}"
+                ),
+            )
+        except Exception as exc:
+            if not request_recorded:
+                self._metrics["calls"] += 1
+            if not failure_recorded:
+                self._metrics["failures"] += 1
+            self._write_debug_aopenai_log(
+                request=request,
+                url=url,
+                request_headers=self._headers(),
+                request_payload=payload,
+                error=str(exc).strip() or type(exc).__name__,
+            )
+            raise RuntimeError(str(exc).strip() or "openai_image_generation_failed") from exc
 
     def estimate_cost(
         self,

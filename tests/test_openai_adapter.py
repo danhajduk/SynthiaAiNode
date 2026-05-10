@@ -340,6 +340,39 @@ class OpenAIAdapterExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.output_text, "summary text")
         self.assertNotIn("response_format", capture["json"])
 
+    async def test_image_generation_uses_images_api_with_gpt_image_model(self):
+        capture: dict = {}
+        response_payload = {
+            "created": 1770000000,
+            "data": [{"b64_json": "aW1hZ2U=", "revised_prompt": "A clean product image"}],
+            "usage": {"input_tokens": 12, "output_tokens": 2, "total_tokens": 14},
+        }
+
+        def _client_factory(*args, **kwargs):
+            return _FakeAsyncClient(capture=capture, payload=response_payload, **kwargs)
+
+        adapter = OpenAIProviderAdapter(api_key=TEST_OPENAI_CREDENTIAL)
+        request = UnifiedExecutionRequest(
+            task_family="task.image_generation",
+            prompt="Make a clean product image",
+            requested_model="gpt-image-1-mini",
+            metadata={"size": "1024x1024", "quality": "medium"},
+        )
+
+        with patch("ai_node.providers.adapters.openai_adapter.httpx.AsyncClient", side_effect=_client_factory):
+            response = await adapter.execute_prompt(request)
+
+        self.assertEqual(capture["url"], "https://api.openai.com/v1/images/generations")
+        self.assertEqual(capture["json"]["model"], "gpt-image-1-mini")
+        self.assertEqual(capture["json"]["prompt"], "Make a clean product image")
+        self.assertEqual(capture["json"]["size"], "1024x1024")
+        self.assertEqual(capture["json"]["quality"], "medium")
+        self.assertNotIn("messages", capture["json"])
+        output = json.loads(response.output_text)
+        self.assertEqual(output["images"][0]["b64_json"], "aW1hZ2U=")
+        self.assertEqual(response.model_id, "gpt-image-1-mini")
+        self.assertEqual(response.usage.prompt_tokens, 12)
+
     async def test_structured_extraction_does_not_send_json_schema_response_format(self):
         capture: dict = {}
         response_payload = {

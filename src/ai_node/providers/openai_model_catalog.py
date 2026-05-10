@@ -11,6 +11,13 @@ from ai_node.providers.openai_catalog import is_openai_date_versioned_model_id
 OPENAI_PROVIDER_MODEL_CATALOG_SCHEMA_VERSION = "1.0"
 DEFAULT_OPENAI_PROVIDER_MODEL_CATALOG_PATH = "data/provider_models.json"
 _PREVIEW_TAGS = ("preview", "latest")
+OPENAI_IMAGE_GENERATION_MODEL_IDS = frozenset(
+    {
+        "gpt-image-1",
+        "gpt-image-1-mini",
+        "gpt-image-1.5",
+    }
+)
 
 
 def _iso_now() -> str:
@@ -50,8 +57,10 @@ def classify_openai_model_family(model_id: str) -> str | None:
     normalized = _normalize_string(model_id).lower()
     if _is_filtered_out(normalized):
         return None
-    if re.fullmatch(r"gpt-image-[a-z0-9.-]+(?:-mini)?", normalized):
+    if normalized in OPENAI_IMAGE_GENERATION_MODEL_IDS:
         return "image_generation"
+    if normalized.startswith("gpt-image-"):
+        return None
     if re.fullmatch(r"sora-[a-z0-9.-]+", normalized):
         return "video_generation"
     if re.fullmatch(r"gpt-realtime-[a-z0-9.-]+", normalized):
@@ -92,8 +101,8 @@ def select_representative_openai_model_ids(model_ids: list[str]) -> set[str]:
     choose(lambda item: re.fullmatch(r"gpt-\d+(?:\.\d+)?-pro", item) is not None)
     choose(lambda item: re.fullmatch(r"gpt-\d+(?:\.\d+)?-mini", item) is not None)
     choose(lambda item: re.fullmatch(r"gpt-\d+(?:\.\d+)?-nano", item) is not None)
-    choose(lambda item: re.fullmatch(r"gpt-image-[a-z0-9.-]+", item) is not None and not item.endswith("-mini"))
-    choose(lambda item: re.fullmatch(r"gpt-image-[a-z0-9.-]+-mini", item) is not None)
+    choose(lambda item: item in OPENAI_IMAGE_GENERATION_MODEL_IDS and not item.endswith("-mini"))
+    choose(lambda item: item in OPENAI_IMAGE_GENERATION_MODEL_IDS and item.endswith("-mini"))
     choose(lambda item: re.fullmatch(r"gpt-realtime-[a-z0-9.-]+", item) is not None and item != "gpt-realtime-mini")
     choose(lambda item: item in {"gpt-realtime-mini", "gpt-relatime-mini"})
     choose(lambda item: re.fullmatch(r"sora-[a-z0-9.-]+", item) is not None and "pro" not in item)

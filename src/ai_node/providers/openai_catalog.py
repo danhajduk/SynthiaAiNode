@@ -92,7 +92,7 @@ _BASE_ALLOW_RE = re.compile(
     r"|o1(?:-pro)?"
     r"|o3(?:-(?:mini|pro))?"
     r"|o4-mini"
-    r"|gpt-image-[a-z0-9.-]+(?:-mini)?"
+    r"|gpt-image-(?:1|1-mini|1\.5)"
     r"|gpt-realtime-[a-z0-9.-]+"
     r"|whisper-[a-z0-9.-]+"
     r"|tts(?:-hd)?-[a-z0-9.-]+"
@@ -129,6 +129,8 @@ _DISPLAY_NAME_ALIASES = {
     "gpt-4o mini": "gpt-4o-mini",
     "gpt realtime mini": "gpt-realtime-mini",
     "gpt image 1": "gpt-image-1",
+    "gpt image 1 mini": "gpt-image-1-mini",
+    "gpt image 1.5": "gpt-image-1.5",
 }
 _OPENAI_MANUAL_RATE_FALLBACKS = {
     "gpt-5.4": {"input_price": 2.50, "cached_input_price": 0.25, "output_price": 15.00},
@@ -248,7 +250,7 @@ def _normalize_family(value: object, *, model_id: str) -> str:
 
 def _classify_family_from_model_id(model_id: str) -> str | None:
     normalized = _normalize_string(model_id).lower()
-    if normalized.startswith("gpt-image-"):
+    if normalized in {"gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5"}:
         return "image_generation"
     if normalized.startswith("sora-"):
         return "video_generation"
@@ -2098,21 +2100,34 @@ class OpenAIPricingCatalogService:
             family = existing.family
         input_price = input_price_per_1m if input_price_per_1m is not None else (existing.input_price if existing is not None else None)
         output_price = output_price_per_1m if output_price_per_1m is not None else (existing.output_price if existing is not None else None)
-        manual_entry = OpenAIPricingEntry(
-            model_id=normalized_model_id,
+        basis = existing.pricing_basis if existing is not None else _default_pricing_basis_for_family(family)
+        normalized_unit = existing.normalized_unit if existing is not None else _default_normalized_unit(basis)
+        normalized_price = (
+            None
+            if input_price_per_1m is not None or output_price_per_1m is not None
+            else (existing.normalized_price if existing is not None else None)
+        )
+        notes = sorted(set((existing.notes if existing is not None else []) + ["manual_pricing_override"]))
+        basis, input_price, cached_input_price, output_price, normalized_price, normalized_unit, notes = _enforce_family_pricing_rules(
             family=family,
-            pricing_basis="per_1m_tokens",
+            basis=basis,
             input_price=input_price,
             cached_input_price=(existing.cached_input_price if existing is not None else None),
             output_price=output_price,
-            normalized_price=_compute_normalized_price(
-                basis="per_1m_tokens",
-                input_price=input_price,
-                output_price=output_price,
-                normalized_price=(existing.normalized_price if existing is not None else None),
-            ),
-            normalized_unit="per_1m_tokens",
-            notes=sorted(set((existing.notes if existing is not None else []) + ["manual_pricing_override"])),
+            normalized_price=normalized_price,
+            normalized_unit=normalized_unit,
+            notes=notes,
+        )
+        manual_entry = OpenAIPricingEntry(
+            model_id=normalized_model_id,
+            family=family,
+            pricing_basis=basis,
+            input_price=input_price,
+            cached_input_price=cached_input_price,
+            output_price=output_price,
+            normalized_price=normalized_price,
+            normalized_unit=normalized_unit,
+            notes=notes,
             source_url="manual://local_override",
             extracted_at=_iso_now(),
             extraction_status="manual",
@@ -2141,11 +2156,12 @@ class OpenAIPricingCatalogService:
         override_payload = {
             "model_id": normalized_model_id,
             "family": family,
-            "pricing_basis": "per_1m_tokens",
+            "pricing_basis": basis,
             "input_price": input_price,
+            "cached_input_price": cached_input_price,
             "output_price": output_price,
             "normalized_price": manual_entry.normalized_price,
-            "normalized_unit": "per_1m_tokens",
+            "normalized_unit": normalized_unit,
         }
         if isinstance(existing_override, dict):
             merged_override = dict(existing_override)
@@ -2202,10 +2218,15 @@ class OpenAIPricingCatalogService:
             pricing_status = "stale" if stale else pricing_entry.extraction_status
             model_status = getattr(model, "status", "available")
             normalized_model_id = str(getattr(model, "model_id", "") or "").strip().lower()
-            if pricing_status == "stale":
-                model_status = "degraded"
-            elif normalized_model_id.startswith("omni-moderation-") and pricing_status == "fallback_used":
+            moderation_free = (
+                normalized_model_id.startswith("omni-moderation-")
+                and pricing_entry.normalized_price == 0.0
+                and "status:free" in set(pricing_entry.notes)
+            )
+            if normalized_model_id.startswith("omni-moderation-") and (pricing_status == "fallback_used" or moderation_free):
                 model_status = "available"
+            elif pricing_status == "stale":
+                model_status = "degraded"
             elif pricing_status not in {"ok", "manual"}:
                 model_status = "unavailable"
 

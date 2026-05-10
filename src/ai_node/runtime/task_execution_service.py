@@ -544,6 +544,11 @@ class TaskExecutionService:
         structured_output_schema = inputs.get("structured_output_schema")
         if not isinstance(structured_output_schema, dict):
             structured_output_schema = inputs.get("json_schema")
+        image_generation_options = {
+            key: inputs.get(key)
+            for key in ("n", "size", "quality", "background", "output_format")
+            if inputs.get(key) is not None
+        }
         return UnifiedExecutionRequest(
             task_family=request.task_family,
             prompt=str(prompt or "") if prompt is not None else None,
@@ -561,6 +566,7 @@ class TaskExecutionService:
                 "prompt_version": request.prompt_version,
                 "lease_id": request.lease_id,
                 "structured_output_schema": structured_output_schema if isinstance(structured_output_schema, dict) else None,
+                **image_generation_options,
             },
         )
 
