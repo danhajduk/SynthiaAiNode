@@ -88,6 +88,31 @@ class OpenAIProviderAdapter(ProviderAdapter):
         with self._debug_aopenai_log_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True))
             handle.write("\n")
+        self._write_latest_image_prompt_debug_record(record=record)
+
+    def _write_latest_image_prompt_debug_record(self, *, record: dict[str, Any]) -> None:
+        request_payload = record.get("request_payload")
+        if not isinstance(request_payload, dict):
+            return
+        model = str(request_payload.get("model") or record.get("requested_model") or "").strip()
+        url = str(record.get("url") or "").strip()
+        if "images/generations" not in url and model.lower() not in OPENAI_IMAGE_GENERATION_MODEL_IDS:
+            return
+
+        prompt = str(request_payload.get("prompt") or "")
+        latest_path = self._debug_aopenai_log_path.with_name("openai_last_image_prompt.txt")
+        lines = [
+            f"recorded_at: {record.get('recorded_at') or ''}",
+            f"prompt_id: {record.get('prompt_id') or ''}",
+            f"prompt_version: {record.get('prompt_version') or ''}",
+            f"model: {model}",
+            f"size: {request_payload.get('size') or ''}",
+            f"quality: {request_payload.get('quality') or ''}",
+            f"output_format: {request_payload.get('output_format') or ''}",
+            "",
+            prompt,
+        ]
+        latest_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
     @staticmethod
     def _structured_output_schema(request: UnifiedExecutionRequest) -> dict[str, Any] | None:

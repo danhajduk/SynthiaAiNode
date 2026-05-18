@@ -14,8 +14,8 @@ This note records how the node-local recurring work now aligns with the Hexe sta
 ## Compliance Summary
 
 - explicit ownership:
-  - recurring work is owned by the runtime scheduler in [internal_scheduler.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/internal_scheduler.py)
-  - the scheduler is started and stopped by [node_control_api.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/node_control_api.py)
+  - recurring work is owned by the runtime scheduler in [internal_scheduler.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/internal_scheduler.py)
+  - the scheduler is started and stopped by [node_control_api.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/node_control_api.py)
 - explicit schedule model:
   - each task is registered with interval metadata and operator-readable schedule names and details
   - heartbeat uses `heartbeat_5_seconds`
@@ -27,7 +27,7 @@ This note records how the node-local recurring work now aligns with the Hexe sta
     - `every_5_minutes` in stable operational state
 - persisted task state:
   - scheduler snapshots persist in `.run/internal_scheduler_state.json`
-  - persistence is handled by [internal_scheduler_state_store.py](/home/dan/Projects/HexeAiNode/src/ai_node/persistence/internal_scheduler_state_store.py)
+  - persistence is handled by [internal_scheduler_state_store.py](/home/dan/hexe/HexeAiNode/src/ai_node/persistence/internal_scheduler_state_store.py)
 - operator visibility:
   - `GET /api/node/status` includes `internal_scheduler`
   - `GET /api/capabilities/diagnostics` includes `internal_scheduler`

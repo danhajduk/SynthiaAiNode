@@ -26,12 +26,12 @@ Status:
 Evidence:
 
 - lifecycle, trust, and onboarding runtime:
-  - [main.py](/home/dan/Projects/HexeAiNode/src/ai_node/main.py)
-  - [onboarding_runtime.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/onboarding_runtime.py)
-  - [node_control_api.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/node_control_api.py)
+  - [main.py](/home/dan/hexe/HexeAiNode/src/ai_node/main.py)
+  - [onboarding_runtime.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/onboarding_runtime.py)
+  - [node_control_api.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/node_control_api.py)
 - repo-local mapping:
-  - [ai-node-standards-alignment.md](/home/dan/Projects/HexeAiNode/docs/ai-node-standards-alignment.md)
-  - [runtime.md](/home/dan/Projects/HexeAiNode/docs/runtime.md)
+  - [ai-node-standards-alignment.md](/home/dan/hexe/HexeAiNode/docs/ai-node-standards-alignment.md)
+  - [runtime.md](/home/dan/hexe/HexeAiNode/docs/runtime.md)
 
 ## 2. Backend Standard
 
@@ -42,10 +42,10 @@ Status:
 Evidence:
 
 - modular backend domains:
-  - [src/ai_node](/home/dan/Projects/HexeAiNode/src/ai_node)
+  - [src/ai_node](/home/dan/hexe/HexeAiNode/src/ai_node)
 - repo-local mapping:
-  - [architecture.md](/home/dan/Projects/HexeAiNode/docs/architecture.md)
-  - [ai-node-standards-alignment.md](/home/dan/Projects/HexeAiNode/docs/ai-node-standards-alignment.md)
+  - [architecture.md](/home/dan/hexe/HexeAiNode/docs/architecture.md)
+  - [ai-node-standards-alignment.md](/home/dan/hexe/HexeAiNode/docs/ai-node-standards-alignment.md)
 
 ## 3. API Standard
 
@@ -56,11 +56,11 @@ Status:
 Evidence:
 
 - route implementation:
-  - [node_control_api.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/node_control_api.py)
+  - [node_control_api.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/node_control_api.py)
 - repo-local API family mapping:
-  - [api-map.md](/home/dan/Projects/HexeAiNode/docs/api-map.md)
+  - [api-map.md](/home/dan/hexe/HexeAiNode/docs/api-map.md)
 - deeper contract reference:
-  - [node-control-api-contract.md](/home/dan/Projects/HexeAiNode/docs/ai-node/node-control-api-contract.md)
+  - [node-control-api-contract.md](/home/dan/hexe/HexeAiNode/docs/ai-node/node-control-api-contract.md)
 
 ## 4. Frontend Standard
 
@@ -71,14 +71,14 @@ Status:
 Evidence:
 
 - feature-based frontend structure:
-  - [frontend/src/features](/home/dan/Projects/HexeAiNode/frontend/src/features)
+  - [frontend/src/features](/home/dan/hexe/HexeAiNode/frontend/src/features)
 - extracted shared and operational helpers:
-  - [formatters.js](/home/dan/Projects/HexeAiNode/frontend/src/shared/formatters.js)
-  - [providerBudgetSummary.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/providerBudgetSummary.js)
-  - [clientUsageSummary.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/clientUsageSummary.js)
-  - [openaiModelPresentation.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/openaiModelPresentation.js)
+  - [formatters.js](/home/dan/hexe/HexeAiNode/frontend/src/shared/formatters.js)
+  - [providerBudgetSummary.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/providerBudgetSummary.js)
+  - [clientUsageSummary.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/clientUsageSummary.js)
+  - [openaiModelPresentation.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/openaiModelPresentation.js)
 - repo-local audit:
-  - [frontend-modularity-audit.md](/home/dan/Projects/HexeAiNode/docs/frontend-modularity-audit.md)
+  - [frontend-modularity-audit.md](/home/dan/hexe/HexeAiNode/docs/frontend-modularity-audit.md)
 
 ## 5. Scripts And Operations Standard
 
@@ -89,14 +89,14 @@ Status:
 Evidence:
 
 - operational baseline:
-  - [bootstrap.sh](/home/dan/Projects/HexeAiNode/scripts/bootstrap.sh)
-  - [run-from-env.sh](/home/dan/Projects/HexeAiNode/scripts/run-from-env.sh)
-  - [stack-control.sh](/home/dan/Projects/HexeAiNode/scripts/stack-control.sh)
-  - [restart-stack.sh](/home/dan/Projects/HexeAiNode/scripts/restart-stack.sh)
-  - [stack.env.example](/home/dan/Projects/HexeAiNode/scripts/stack.env.example)
-  - [systemd](/home/dan/Projects/HexeAiNode/scripts/systemd)
+  - [bootstrap.sh](/home/dan/hexe/HexeAiNode/scripts/bootstrap.sh)
+  - [run-from-env.sh](/home/dan/hexe/HexeAiNode/scripts/run-from-env.sh)
+  - [stack-control.sh](/home/dan/hexe/HexeAiNode/scripts/stack-control.sh)
+  - [restart-stack.sh](/home/dan/hexe/HexeAiNode/scripts/restart-stack.sh)
+  - [stack.env.example](/home/dan/hexe/HexeAiNode/scripts/stack.env.example)
+  - [systemd](/home/dan/hexe/HexeAiNode/scripts/systemd)
 - repo-local operations mapping:
-  - [operations.md](/home/dan/Projects/HexeAiNode/docs/operations.md)
+  - [operations.md](/home/dan/hexe/HexeAiNode/docs/operations.md)
 
 Notes:
 
@@ -112,11 +112,11 @@ Status:
 Evidence:
 
 - runtime and background ownership:
-  - [scheduler-and-background-tasks.md](/home/dan/Projects/HexeAiNode/docs/scheduler-and-background-tasks.md)
+  - [scheduler-and-background-tasks.md](/home/dan/hexe/HexeAiNode/docs/scheduler-and-background-tasks.md)
 - runtime modules:
-  - [src/ai_node/runtime](/home/dan/Projects/HexeAiNode/src/ai_node/runtime)
-  - [src/ai_node/telemetry](/home/dan/Projects/HexeAiNode/src/ai_node/telemetry)
-  - [src/ai_node/execution](/home/dan/Projects/HexeAiNode/src/ai_node/execution)
+  - [src/ai_node/runtime](/home/dan/hexe/HexeAiNode/src/ai_node/runtime)
+  - [src/ai_node/telemetry](/home/dan/hexe/HexeAiNode/src/ai_node/telemetry)
+  - [src/ai_node/execution](/home/dan/hexe/HexeAiNode/src/ai_node/execution)
 
 ## 7. Onboarding, Trust, And Readiness Standard
 
@@ -127,12 +127,12 @@ Status:
 Evidence:
 
 - onboarding and trust implementation:
-  - [onboarding_runtime.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/onboarding_runtime.py)
-  - [trust_store.py](/home/dan/Projects/HexeAiNode/src/ai_node/trust/trust_store.py)
-  - [node_control_api.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/node_control_api.py)
+  - [onboarding_runtime.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/onboarding_runtime.py)
+  - [trust_store.py](/home/dan/hexe/HexeAiNode/src/ai_node/trust/trust_store.py)
+  - [node_control_api.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/node_control_api.py)
 - repo-local runtime documentation:
-  - [runtime.md](/home/dan/Projects/HexeAiNode/docs/runtime.md)
-  - [integration.md](/home/dan/Projects/HexeAiNode/docs/integration.md)
+  - [runtime.md](/home/dan/hexe/HexeAiNode/docs/runtime.md)
+  - [integration.md](/home/dan/hexe/HexeAiNode/docs/integration.md)
 
 ## 8. Persistence, Configuration, And Security Standard
 
@@ -143,14 +143,14 @@ Status:
 Evidence:
 
 - typed config and persistence stores:
-  - [config](/home/dan/Projects/HexeAiNode/src/ai_node/config)
-  - [persistence](/home/dan/Projects/HexeAiNode/src/ai_node/persistence)
-  - [trust](/home/dan/Projects/HexeAiNode/src/ai_node/trust)
+  - [config](/home/dan/hexe/HexeAiNode/src/ai_node/config)
+  - [persistence](/home/dan/hexe/HexeAiNode/src/ai_node/persistence)
+  - [trust](/home/dan/hexe/HexeAiNode/src/ai_node/trust)
 - runtime-path mapping:
-  - [runtime-path-ownership.md](/home/dan/Projects/HexeAiNode/docs/runtime-path-ownership.md)
+  - [runtime-path-ownership.md](/home/dan/hexe/HexeAiNode/docs/runtime-path-ownership.md)
 - config and sensitive-state mapping:
-  - [configuration.md](/home/dan/Projects/HexeAiNode/docs/configuration.md)
-  - [security-and-sensitive-state.md](/home/dan/Projects/HexeAiNode/docs/security-and-sensitive-state.md)
+  - [configuration.md](/home/dan/hexe/HexeAiNode/docs/configuration.md)
+  - [security-and-sensitive-state.md](/home/dan/hexe/HexeAiNode/docs/security-and-sensitive-state.md)
 
 ## 9. Provider Boundary Standard
 
@@ -161,10 +161,10 @@ Status:
 Evidence:
 
 - provider modules:
-  - [providers](/home/dan/Projects/HexeAiNode/src/ai_node/providers)
-  - [provider_credentials_config.py](/home/dan/Projects/HexeAiNode/src/ai_node/config/provider_credentials_config.py)
+  - [providers](/home/dan/hexe/HexeAiNode/src/ai_node/providers)
+  - [provider_credentials_config.py](/home/dan/hexe/HexeAiNode/src/ai_node/config/provider_credentials_config.py)
 - repo-local provider-boundary mapping:
-  - [provider-boundary.md](/home/dan/Projects/HexeAiNode/docs/provider-boundary.md)
+  - [provider-boundary.md](/home/dan/hexe/HexeAiNode/docs/provider-boundary.md)
 
 ## 10. Testing And Documentation Requirements
 
@@ -175,16 +175,16 @@ Status:
 Evidence:
 
 - backend tests:
-  - [tests](/home/dan/Projects/HexeAiNode/tests)
+  - [tests](/home/dan/hexe/HexeAiNode/tests)
 - frontend targeted tests for standards-alignment extraction:
-  - [formatters.test.js](/home/dan/Projects/HexeAiNode/frontend/src/shared/formatters.test.js)
-  - [providerBudgetSummary.test.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/providerBudgetSummary.test.js)
-  - [clientUsageSummary.test.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/clientUsageSummary.test.js)
-  - [openaiModelPresentation.test.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/openaiModelPresentation.test.js)
+  - [formatters.test.js](/home/dan/hexe/HexeAiNode/frontend/src/shared/formatters.test.js)
+  - [providerBudgetSummary.test.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/providerBudgetSummary.test.js)
+  - [clientUsageSummary.test.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/clientUsageSummary.test.js)
+  - [openaiModelPresentation.test.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/openaiModelPresentation.test.js)
 - repo-local standards docs:
-  - [index.md](/home/dan/Projects/HexeAiNode/docs/index.md)
-  - [ai-node-standard-compliance-summary.md](/home/dan/Projects/HexeAiNode/docs/ai-node-standard-compliance-summary.md)
-  - [ai-node-standards-alignment.md](/home/dan/Projects/HexeAiNode/docs/ai-node-standards-alignment.md)
+  - [index.md](/home/dan/hexe/HexeAiNode/docs/index.md)
+  - [ai-node-standard-compliance-summary.md](/home/dan/hexe/HexeAiNode/docs/ai-node-standard-compliance-summary.md)
+  - [ai-node-standards-alignment.md](/home/dan/hexe/HexeAiNode/docs/ai-node-standards-alignment.md)
 
 ## 11. Allowed Variant Decision
 
@@ -198,9 +198,9 @@ Current repo-local variant decisions:
 
 Evidence:
 
-- [runtime-path-ownership.md](/home/dan/Projects/HexeAiNode/docs/runtime-path-ownership.md)
-- [operations.md](/home/dan/Projects/HexeAiNode/docs/operations.md)
-- [api-map.md](/home/dan/Projects/HexeAiNode/docs/api-map.md)
+- [runtime-path-ownership.md](/home/dan/hexe/HexeAiNode/docs/runtime-path-ownership.md)
+- [operations.md](/home/dan/hexe/HexeAiNode/docs/operations.md)
+- [api-map.md](/home/dan/hexe/HexeAiNode/docs/api-map.md)
 
 ## 12. Final Assessment
 

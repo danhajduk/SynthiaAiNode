@@ -4,9 +4,9 @@ This document defines the current runtime path ownership model for this reposito
 
 Verified against:
 
-- [main.py](/home/dan/Projects/HexeAiNode/src/ai_node/main.py)
-- [stack-control.sh](/home/dan/Projects/HexeAiNode/scripts/stack-control.sh)
-- [.gitignore](/home/dan/Projects/HexeAiNode/.gitignore)
+- [main.py](/home/dan/hexe/HexeAiNode/src/ai_node/main.py)
+- [stack-control.sh](/home/dan/hexe/HexeAiNode/scripts/stack-control.sh)
+- [.gitignore](/home/dan/hexe/HexeAiNode/.gitignore)
 
 ## Summary
 
@@ -109,7 +109,7 @@ Operational meaning:
 
 The local stack scripts treat `.run/` and `logs/` as runtime directories they are responsible for creating.
 
-Verified in [stack-control.sh](/home/dan/Projects/HexeAiNode/scripts/stack-control.sh):
+Verified in [stack-control.sh](/home/dan/hexe/HexeAiNode/scripts/stack-control.sh):
 
 - `RUN_DIR=\"$ROOT_DIR/.run\"`
 - `LOG_DIR=\"$ROOT_DIR/logs\"`

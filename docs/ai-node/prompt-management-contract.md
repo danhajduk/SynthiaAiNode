@@ -1,7 +1,7 @@
 # AI Node Prompt Management Contract
 
 Status: Implemented
-Last updated: 2026-04-04
+Last updated: 2026-05-10
 
 ## Scope Boundary
 
@@ -139,6 +139,30 @@ When prompt authorization succeeds, the execution service:
 - caps request timeout using prompt `max_timeout_s`
 - injects the prompt version `system_prompt` when the request does not provide one
 - records prompt denials and execution outcomes into local usage state
+
+## Prompt Template Placeholders
+
+Implemented placeholder syntax is double braces:
+
+```text
+{{condition}}
+{{ day_night }}
+{{visual_guidance}}
+```
+
+During execution, the node renders `definition.prompt_template` before sending the request to the provider. Values come from `definition.default_inputs` merged with request `inputs`; request `inputs` override defaults when both provide the same key.
+
+Single-brace Python format placeholders are not rendered by the current implementation:
+
+```text
+{condition}
+{day_night}
+{visual_guidance}
+```
+
+If a prompt template uses the single-brace form, those placeholders remain literal text and are sent to the provider unchanged. For example, an OpenAI image generation request would receive `Weather condition: {condition}` instead of the actual condition value.
+
+`definition.template_variables[]` records the expected variable names, but the current renderer detects placeholders from `definition.prompt_template` itself. A variable listed in `template_variables[]` is not substituted unless the template contains the matching `{{variable_name}}` placeholder.
 
 ## Local API Surface
 

@@ -44,8 +44,8 @@ Current repo alignment:
   - `src/ai_node/runtime/node_control_api.py`
   - `src/ai_node/trust/`
 - repo docs covering current runtime behavior:
-  - [architecture.md](/home/dan/Projects/HexeAiNode/docs/architecture.md)
-  - [runtime.md](/home/dan/Projects/HexeAiNode/docs/runtime.md)
+  - [architecture.md](/home/dan/hexe/HexeAiNode/docs/architecture.md)
+  - [runtime.md](/home/dan/hexe/HexeAiNode/docs/runtime.md)
 
 Assessment:
 
@@ -90,7 +90,7 @@ Current repo alignment:
 Assessment:
 
 - functionally aligned
-- now covered by [api-map.md](/home/dan/Projects/HexeAiNode/docs/api-map.md)
+- now covered by [api-map.md](/home/dan/hexe/HexeAiNode/docs/api-map.md)
 
 ## Frontend Standard
 
@@ -112,7 +112,7 @@ Current repo alignment:
 
 Assessment:
 
-- now aligned more clearly after the extraction documented in [frontend-modularity-audit.md](/home/dan/Projects/HexeAiNode/docs/frontend-modularity-audit.md)
+- now aligned more clearly after the extraction documented in [frontend-modularity-audit.md](/home/dan/hexe/HexeAiNode/docs/frontend-modularity-audit.md)
 
 ## Onboarding, Trust, And Readiness Standard
 
@@ -128,8 +128,8 @@ Current repo alignment:
   - `src/ai_node/trust/`
   - `src/ai_node/identity/`
 - repo docs:
-  - [runtime.md](/home/dan/Projects/HexeAiNode/docs/runtime.md)
-  - [integration.md](/home/dan/Projects/HexeAiNode/docs/integration.md)
+  - [runtime.md](/home/dan/hexe/HexeAiNode/docs/runtime.md)
+  - [integration.md](/home/dan/hexe/HexeAiNode/docs/integration.md)
 
 Assessment:
 
@@ -154,7 +154,7 @@ Current repo alignment:
 
 Assessment:
 
-- aligned on script baseline and now documented with a clear repo-local status path in [operations.md](/home/dan/Projects/HexeAiNode/docs/operations.md)
+- aligned on script baseline and now documented with a clear repo-local status path in [operations.md](/home/dan/hexe/HexeAiNode/docs/operations.md)
 
 ## Background Tasks And Internal Scheduler Standard
 
@@ -201,7 +201,7 @@ Current repo alignment:
 Assessment:
 
 - structurally aligned
-- now covered by [runtime-path-ownership.md](/home/dan/Projects/HexeAiNode/docs/runtime-path-ownership.md)
+- now covered by [runtime-path-ownership.md](/home/dan/hexe/HexeAiNode/docs/runtime-path-ownership.md)
 
 ## Security And Sensitive-State Standard
 
@@ -220,7 +220,7 @@ Current repo alignment:
 
 Assessment:
 
-- now covered by [security-and-sensitive-state.md](/home/dan/Projects/HexeAiNode/docs/security-and-sensitive-state.md)
+- now covered by [security-and-sensitive-state.md](/home/dan/hexe/HexeAiNode/docs/security-and-sensitive-state.md)
 
 ## Provider Boundary Standard
 
@@ -283,8 +283,8 @@ Assessment:
 
 ## Related Repo Docs
 
-- [index.md](/home/dan/Projects/HexeAiNode/docs/index.md)
-- [architecture.md](/home/dan/Projects/HexeAiNode/docs/architecture.md)
-- [runtime.md](/home/dan/Projects/HexeAiNode/docs/runtime.md)
-- [operations.md](/home/dan/Projects/HexeAiNode/docs/operations.md)
-- [core-references.md](/home/dan/Projects/HexeAiNode/docs/core-references.md)
+- [index.md](/home/dan/hexe/HexeAiNode/docs/index.md)
+- [architecture.md](/home/dan/hexe/HexeAiNode/docs/architecture.md)
+- [runtime.md](/home/dan/hexe/HexeAiNode/docs/runtime.md)
+- [operations.md](/home/dan/hexe/HexeAiNode/docs/operations.md)
+- [core-references.md](/home/dan/hexe/HexeAiNode/docs/core-references.md)

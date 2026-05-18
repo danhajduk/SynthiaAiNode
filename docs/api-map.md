@@ -4,8 +4,8 @@ This document groups the node-local FastAPI surface by the Hexe node API standar
 
 Verified against:
 
-- [node_control_api.py](/home/dan/Projects/HexeAiNode/src/ai_node/runtime/node_control_api.py)
-- [node-control-api-contract.md](/home/dan/Projects/HexeAiNode/docs/ai-node/node-control-api-contract.md)
+- [node_control_api.py](/home/dan/hexe/HexeAiNode/src/ai_node/runtime/node_control_api.py)
+- [node-control-api-contract.md](/home/dan/hexe/HexeAiNode/docs/ai-node/node-control-api-contract.md)
 
 ## Canonical API Policy For This Repo
 

@@ -32,7 +32,7 @@ Use it as the fast review page before reading the deeper repo-specific alignment
 
 ## Related Docs
 
-- [ai-node-standards-alignment.md](/home/dan/Projects/HexeAiNode/docs/ai-node-standards-alignment.md)
-- [ai-node-standards-compliance-appendix.md](/home/dan/Projects/HexeAiNode/docs/ai-node-standards-compliance-appendix.md)
-- [index.md](/home/dan/Projects/HexeAiNode/docs/index.md)
-- [README.md](/home/dan/Projects/HexeAiNode/docs/README.md)
+- [ai-node-standards-alignment.md](/home/dan/hexe/HexeAiNode/docs/ai-node-standards-alignment.md)
+- [ai-node-standards-compliance-appendix.md](/home/dan/hexe/HexeAiNode/docs/ai-node-standards-compliance-appendix.md)
+- [index.md](/home/dan/hexe/HexeAiNode/docs/index.md)
+- [README.md](/home/dan/hexe/HexeAiNode/docs/README.md)

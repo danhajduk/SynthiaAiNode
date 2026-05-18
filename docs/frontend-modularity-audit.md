@@ -4,8 +4,8 @@ This document captures the verified frontend modularity findings for the remaini
 
 ## Scope
 
-- Verified against [App.jsx](/home/dan/Projects/HexeAiNode/frontend/src/App.jsx)
-- Verified against the current feature folders under [frontend/src/features](/home/dan/Projects/HexeAiNode/frontend/src/features)
+- Verified against [App.jsx](/home/dan/hexe/HexeAiNode/frontend/src/App.jsx)
+- Verified against the current feature folders under [frontend/src/features](/home/dan/hexe/HexeAiNode/frontend/src/features)
 - Focused on the Hexe node frontend standard requirement that new and evolving nodes stay modular by responsibility
 
 ## Current Verified State
@@ -13,7 +13,7 @@ This document captures the verified frontend modularity findings for the remaini
 - The frontend already has clear feature folders for setup, operational, diagnostics, and node-UI behavior.
 - The operational dashboard is already decomposed into feature-level cards and shell components.
 - The setup flow is partly decomposed into `SetupModeView`, `SetupShell`, `SetupStepper`, and setup stage panels.
-- [App.jsx](/home/dan/Projects/HexeAiNode/frontend/src/App.jsx) remains the largest coordination file and is still responsible for both app-shell orchestration and several clusters of pure display or transformation logic.
+- [App.jsx](/home/dan/hexe/HexeAiNode/frontend/src/App.jsx) remains the largest coordination file and is still responsible for both app-shell orchestration and several clusters of pure display or transformation logic.
 
 ## Extraction Targets Verified In App.jsx
 
@@ -38,10 +38,10 @@ This document captures the verified frontend modularity findings for the remaini
 
 ## Extraction Work Completed In This Pass
 
-- Shared formatting utilities moved to [formatters.js](/home/dan/Projects/HexeAiNode/frontend/src/shared/formatters.js)
-- Provider-budget derivation moved to [providerBudgetSummary.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/providerBudgetSummary.js)
-- Client-usage normalization moved to [clientUsageSummary.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/clientUsageSummary.js)
-- OpenAI model presentation helpers moved to [openaiModelPresentation.js](/home/dan/Projects/HexeAiNode/frontend/src/features/operational/openaiModelPresentation.js)
+- Shared formatting utilities moved to [formatters.js](/home/dan/hexe/HexeAiNode/frontend/src/shared/formatters.js)
+- Provider-budget derivation moved to [providerBudgetSummary.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/providerBudgetSummary.js)
+- Client-usage normalization moved to [clientUsageSummary.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/clientUsageSummary.js)
+- OpenAI model presentation helpers moved to [openaiModelPresentation.js](/home/dan/hexe/HexeAiNode/frontend/src/features/operational/openaiModelPresentation.js)
 
 ## Remaining App.jsx Responsibilities That Still Belong There
 

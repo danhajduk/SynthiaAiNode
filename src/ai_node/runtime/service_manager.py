@@ -8,6 +8,15 @@ class UserSystemdServiceManager:
         self._logger = logger
         self._backend_unit = "synthia-ai-node-backend.service"
         self._frontend_unit = "synthia-ai-node-frontend.service"
+        self._local_llm_control_script = str(
+            os.environ.get("SYNTHIA_LOCAL_LLM_CONTROL_SCRIPT") or "scripts/llamacpp-control.sh"
+        ).strip()
+        self._local_llm_socket = str(
+            os.environ.get("SYNTHIA_PROVIDER_LOCAL_SOCKET") or os.environ.get("LLAMACPP_SOCKET_PATH") or "/run/hexe/ai-node/llamacpp.sock"
+        ).strip()
+        self._local_llm_health_socket = str(
+            os.environ.get("LLAMACPP_HEALTH_SOCKET") or "/run/hexe/ai-node/llamacpp-health.sock"
+        ).strip()
         self._cpu_samples: dict[str, tuple[float, float]] = {}
         uid = os.getuid()
         self._runtime_dir = f"/run/user/{uid}"
@@ -24,6 +33,7 @@ class UserSystemdServiceManager:
         return {
             "backend": backend,
             "frontend": frontend,
+            "local_llm": self._local_llm_status(),
             "node": node,
         }
 
@@ -39,6 +49,9 @@ class UserSystemdServiceManager:
             self._restart_unit(self._backend_unit)
             self._restart_unit(self._frontend_unit)
             return {"target": "node", "result": "restarted"}
+        if value == "local_llm":
+            self._run_local_llm_control("restart")
+            return {"target": "local_llm", "result": "restarted"}
         raise ValueError("unsupported restart target")
 
     def start(self, *, target: str) -> dict:
@@ -53,6 +66,9 @@ class UserSystemdServiceManager:
             self._start_unit(self._backend_unit)
             self._start_unit(self._frontend_unit)
             return {"target": "node", "result": "started"}
+        if value == "local_llm":
+            self._run_local_llm_control("start")
+            return {"target": "local_llm", "result": "started"}
         raise ValueError("unsupported start target")
 
     def stop(self, *, target: str) -> dict:
@@ -67,6 +83,9 @@ class UserSystemdServiceManager:
             self._stop_unit(self._backend_unit)
             self._stop_unit(self._frontend_unit)
             return {"target": "node", "result": "stopped"}
+        if value == "local_llm":
+            self._run_local_llm_control("stop")
+            return {"target": "local_llm", "result": "stopped"}
         raise ValueError("unsupported stop target")
 
     def schedule_restart(self, *, target: str, delay_seconds: int) -> dict:
@@ -87,6 +106,38 @@ class UserSystemdServiceManager:
             start_new_session=True,
         )
         return {"target": value, "result": "scheduled", "delay_seconds": delay}
+
+    def _local_llm_status(self) -> dict:
+        service_id = "local_llm"
+        script_exists = os.path.exists(self._local_llm_control_script)
+        llama_socket_ready = bool(self._local_llm_socket and os.path.exists(self._local_llm_socket))
+        health_socket_ready = bool(self._local_llm_health_socket and os.path.exists(self._local_llm_health_socket))
+        state = "running" if llama_socket_ready and health_socket_ready else "stopped"
+        if not script_exists:
+            state = "unknown"
+        return {
+            "service_id": service_id,
+            "service_name": service_id,
+            "state": state,
+            "cpu_percent": None,
+            "mem_percent": None,
+            "pid": None,
+            "boot_order": 30,
+            "managed_by": "llamacpp-control",
+            "control_script": self._local_llm_control_script,
+            "socket_path": self._local_llm_socket or None,
+            "health_socket_path": self._local_llm_health_socket or None,
+        }
+
+    def _run_local_llm_control(self, command: str) -> None:
+        if not os.path.exists(self._local_llm_control_script):
+            raise ValueError("local llm control script is not configured")
+        subprocess.run(
+            [self._local_llm_control_script, command],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
     def _query_active(self, unit: str) -> str:
         try:
@@ -291,7 +342,7 @@ class UserSystemdServiceManager:
 
 class NullServiceManager:
     def get_status(self) -> dict:
-        return {"backend": "unknown", "frontend": "unknown", "node": "unknown"}
+        return {"backend": "unknown", "frontend": "unknown", "local_llm": "unknown", "node": "unknown"}
 
     def restart(self, *, target: str) -> dict:
         raise ValueError("service manager is not configured")

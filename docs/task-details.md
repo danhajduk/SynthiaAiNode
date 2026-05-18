@@ -1,5 +1,97 @@
 # Task Details
 
+## Task 902-910
+Original task source: ad hoc operator request on 2026-05-18.
+
+Summary of preserved scope:
+- Add a supervised local llama.cpp runtime for the AI Node.
+- Run llama.cpp in a container with NVIDIA GPU access on hosts that support it.
+- Prefer Unix domain sockets over TCP for node-to-llama.cpp traffic.
+- Keep TCP loopback as an explicit fallback for development or socket-incompatible deployments.
+- Add a Python health wrapper that can be supervised and queried separately from the model server.
+- Make the health wrapper check llama.cpp readiness, configured model availability, and useful GPU/container signals where practical.
+- Integrate the runtime with the AI Node service metadata so Supervisor can observe and control it similarly to other node-local runtimes.
+- Implement the existing `local` provider adapter against llama.cpp's OpenAI-compatible API.
+- Provide an operator-facing way to compare local and OpenAI results and latency using the same prompt.
+- Default the first local model target to `Qwen/Qwen3-8B-GGUF` with `Q4_K_M` quantization unless implementation validation shows it does not fit or behave well on the RTX 3060 12 GB host.
+
+Task mapping:
+- Task 902: Define the llama.cpp local runtime contract
+  - Document runtime boundaries, socket paths, model path conventions, transport fallback rules, and default model choice.
+  - Proposed socket paths:
+    - `/run/hexe/ai-node/llamacpp.sock`
+    - `/run/hexe/ai-node/llamacpp-health.sock`
+- Task 903: Add a socket-first llama.cpp Docker Compose runtime
+  - Add compose assets for `ghcr.io/ggml-org/llama.cpp:server` or a locally built CUDA-capable image if required.
+  - Mount model storage read-only.
+  - Mount the runtime socket directory.
+  - Enable NVIDIA GPU access where Docker supports it.
+  - Avoid externally exposed model-server ports by default.
+- Task 904: Add llama.cpp runtime lifecycle control script
+  - Add start, stop, restart, status, logs, and ready actions.
+  - Include CUDA/GPU preflight checks similar to the voice node STT runtime pattern.
+  - Support CPU fallback only when explicitly configured or when GPU preflight fails in auto mode.
+- Task 905: Add llama.cpp health wrapper service
+  - Add a small Python wrapper that serves health over a Unix socket.
+  - Check llama.cpp `/health` and `/v1/models` through the llama.cpp socket.
+  - Report configured model ID, readiness, degraded reasons, and optional GPU visibility.
+- Task 906: Surface llama.cpp runtime state in node service metadata
+  - Include the local LLM runtime in service status and Supervisor heartbeat metadata.
+  - Report container/process identity, health status, configured transport, socket path, and model ID.
+- Task 907: Implement the local provider adapter over llama.cpp
+  - Replace the current local-provider placeholder.
+  - Use `httpx` Unix-socket transport when `SYNTHIA_PROVIDER_LOCAL_TRANSPORT=socket`.
+  - Support loopback HTTP fallback with `SYNTHIA_PROVIDER_LOCAL_BASE_URL`.
+  - Implement health check, model listing, model capability lookup, prompt execution, zero-cost estimation, and metrics.
+- Task 908: Add local provider configuration and model defaults
+  - Add env/config fields for local provider transport, socket path, base URL fallback, default model, timeout, and runtime mode.
+  - Ensure provider selection can enable `local` without requiring cloud credentials.
+  - Default model recommendation for this host: `Qwen/Qwen3-8B-GGUF:Q4_K_M`.
+- Task 909: Add local versus OpenAI comparison execution endpoint
+  - Add an admin/operator endpoint that executes the same normalized prompt against explicit providers/models.
+  - Return per-provider status, latency, model, output text, usage, estimated cost, and error fields.
+  - Do not use comparison mode as normal production routing.
+- Task 910: Add tests and documentation for the llama.cpp local runtime
+  - Add tests for compose/control script command construction, socket health wrapper behavior, local adapter success/failure behavior, config loading, and comparison endpoint response shape.
+  - Document install, model download, runtime paths, GPU validation, socket mode, TCP fallback, and comparison workflow.
+
+## Task 911-915
+Original task source: ad hoc operator request on 2026-05-18.
+
+Summary of preserved scope:
+- Download a small candidate set of local LLM models for benchmarking on the RTX 3060 12 GB host.
+- Keep the initial set small enough to avoid unnecessary disk and VRAM pressure.
+- Measure model load success, prompt-processing speed, generation speed, first-token latency where practical, total latency, memory/VRAM pressure, and sustained GPU load.
+- Use the benchmark data to choose the default local model instead of relying only on model reputation.
+- Preserve benchmark results in a repo-local runtime/output file and surface them in diagnostics or documentation.
+
+Initial candidate model set:
+- Primary general model: `Qwen/Qwen3-8B-GGUF:Q4_K_M`
+- Lower-latency general fallback: `Qwen/Qwen3-4B-GGUF:Q4_K_M` if available from the official Qwen GGUF repositories; otherwise use an equivalent official small Qwen GGUF.
+- Coding-focused comparator: `Qwen/Qwen2.5-Coder-7B-Instruct-GGUF` with `Q4_K_M` or `Q5_K_M`, depending on fit and availability.
+- Tiny smoke/load-control model: `ggml-org/gemma-3-1b-it-GGUF` or another official llama.cpp-compatible 1B-class GGUF.
+
+Task mapping:
+- Task 911: Define local LLM benchmark model set
+  - Document candidate model IDs, quantization targets, expected purpose, estimated disk/VRAM footprint, and selection rationale.
+  - Include enough diversity to compare quality/latency, but avoid downloading many near-duplicates.
+- Task 912: Add local LLM model download and manifest tooling
+  - Add a script to download configured Hugging Face GGUF models into a node-local model cache.
+  - Write a manifest containing model source, quantization, local path, file size, checksum if practical, and download timestamp.
+  - Allow skipping already-present models.
+- Task 913: Add llama.cpp benchmark runner for candidate models
+  - Add a script that runs repeatable prompts through llama.cpp or the llama.cpp server.
+  - Capture load time, prompt tokens/second, generation tokens/second, total latency, output length, and errors.
+  - Keep prompt set small but representative: classification, summarization, short chat, and coding/helpful-instruction prompt.
+- Task 914: Add GPU load and stability test workflow for local LLM runtime
+  - Add a bounded stress test that runs concurrent or repeated local inference requests.
+  - Capture `nvidia-smi` samples for utilization, memory, temperature, power, and any throttling/error signals.
+  - Fail safely if GPU temperature, memory pressure, or process errors exceed configured limits.
+- Task 915: Store and surface local LLM benchmark results
+  - Persist benchmark results under `data/` or `.run/` using a JSON schema-like structure.
+  - Surface the latest benchmark summary through diagnostics or docs.
+  - Use results to recommend the default local provider model for this host.
+
 ## Task 131-148
 Original task source: `docs/New_tasks.txt`
 

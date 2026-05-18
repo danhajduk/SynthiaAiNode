@@ -4,11 +4,11 @@ This document maps the repo’s sensitive-state handling to the current implemen
 
 Verified against:
 
-- [redaction.py](/home/dan/Projects/HexeAiNode/src/ai_node/security/redaction.py)
-- [boundaries.py](/home/dan/Projects/HexeAiNode/src/ai_node/security/boundaries.py)
-- [provider_credentials_config.py](/home/dan/Projects/HexeAiNode/src/ai_node/config/provider_credentials_config.py)
-- [trust_store.py](/home/dan/Projects/HexeAiNode/src/ai_node/trust/trust_store.py)
-- [onboarding_logger.py](/home/dan/Projects/HexeAiNode/src/ai_node/diagnostics/onboarding_logger.py)
+- [redaction.py](/home/dan/hexe/HexeAiNode/src/ai_node/security/redaction.py)
+- [boundaries.py](/home/dan/hexe/HexeAiNode/src/ai_node/security/boundaries.py)
+- [provider_credentials_config.py](/home/dan/hexe/HexeAiNode/src/ai_node/config/provider_credentials_config.py)
+- [trust_store.py](/home/dan/hexe/HexeAiNode/src/ai_node/trust/trust_store.py)
+- [onboarding_logger.py](/home/dan/hexe/HexeAiNode/src/ai_node/diagnostics/onboarding_logger.py)
 
 ## Purpose
 
@@ -75,7 +75,7 @@ Why they need caution:
 
 ## Redaction Coverage
 
-Verified redaction keys in [redaction.py](/home/dan/Projects/HexeAiNode/src/ai_node/security/redaction.py):
+Verified redaction keys in [redaction.py](/home/dan/hexe/HexeAiNode/src/ai_node/security/redaction.py):
 
 - `node_trust_token`
 - `operational_mqtt_token`

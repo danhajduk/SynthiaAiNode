@@ -66,11 +66,11 @@ Make it obvious how this repo maps to the Hexe Node Standard.
   - persistence/config/security standard
   - provider boundary standard
   - testing/documentation requirements
-- Update [index.md](/home/dan/Projects/HexeAiNode/docs/index.md) to include:
+- Update [index.md](/home/dan/hexe/HexeAiNode/docs/index.md) to include:
   - repo-specific standards alignment entrypoint
   - repo-specific provider-boundary documentation
   - repo-specific scheduler/background-task documentation
-- Update [README.md](/home/dan/Projects/HexeAiNode/docs/README.md) so the documentation policy explicitly points to the Hexe node standards set, not only the older Core-Documents symlink guidance.
+- Update [README.md](/home/dan/hexe/HexeAiNode/docs/README.md) so the documentation policy explicitly points to the Hexe node standards set, not only the older Core-Documents symlink guidance.
 - Add a repo-specific compliance summary doc for this node that answers:
   - aligned already
   - partially aligned
@@ -140,7 +140,7 @@ Bring the frontend closer to the modular-first standard.
 
 ### Tasks
 
-- Audit [App.jsx](/home/dan/Projects/HexeAiNode/frontend/src/App.jsx) and identify domains that still need extraction into:
+- Audit [App.jsx](/home/dan/hexe/HexeAiNode/frontend/src/App.jsx) and identify domains that still need extraction into:
   - setup
   - operational
   - diagnostics
@@ -173,7 +173,7 @@ Make the repo API easier to review against the Hexe node API standard.
   - runtime/task execution routes
 - Mark which routes are canonical for this repo and which are compatibility or convenience routes.
 - Add explicit notes for any route family that differs from the preferred standard namespace.
-- Link the repo API map from [index.md](/home/dan/Projects/HexeAiNode/docs/index.md).
+- Link the repo API map from [index.md](/home/dan/hexe/HexeAiNode/docs/index.md).
 
 ### Why this matters
 
@@ -218,7 +218,7 @@ Bring repo operations closer to the scripts/operations standard.
 - Add a lightweight `status.sh` helper or explicitly document why `stack-control.sh status` is the standard status path for this repo.
 - Audit current script names and docs for consistency with the standard operations vocabulary.
 - Document the current systemd template naming and any remaining compatibility-era naming in one place.
-- Ensure [operations.md](/home/dan/Projects/HexeAiNode/docs/operations.md) clearly maps:
+- Ensure [operations.md](/home/dan/hexe/HexeAiNode/docs/operations.md) clearly maps:
   - bootstrap
   - run-from-env
   - stack control

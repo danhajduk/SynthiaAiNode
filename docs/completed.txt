@@ -467,3 +467,17 @@ Task 216: Add a mandatory Scheduled Tasks page to the node dashboard using the H
 Task 217: Expose scheduler task list data in a page-oriented format that supports a dedicated Scheduled Tasks table view - Completed on 04/05/2026 15:00
 Task 218: Add frontend tests for the Scheduled Tasks page and verify it shows task cadence, status, and recent execution state - Completed on 04/05/2026 15:00
 Task 901: Add Supervisor client + node runtime registration/heartbeat to the AI Node (local Supervisor detection, register, HB with metadata). - Completed on 04/08/2026 08:51
+Task 902: Define the llama.cpp local runtime contract - Completed on 05/18/2026 16:08
+Task 903: Add a socket-first llama.cpp Docker Compose runtime - Completed on 05/18/2026 16:08
+Task 904: Add llama.cpp runtime lifecycle control script - Completed on 05/18/2026 16:08
+Task 905: Add llama.cpp health wrapper service - Completed on 05/18/2026 16:08
+Task 906: Surface llama.cpp runtime state in node service metadata - Completed on 05/18/2026 16:08
+Task 907: Implement the local provider adapter over llama.cpp - Completed on 05/18/2026 16:08
+Task 908: Add local provider configuration and model defaults - Completed on 05/18/2026 16:08
+Task 909: Add local versus OpenAI comparison execution endpoint - Completed on 05/18/2026 16:08
+Task 910: Add tests and documentation for the llama.cpp local runtime - Completed on 05/18/2026 16:08
+Task 911: Define local LLM benchmark model set - Completed on 05/18/2026 16:08
+Task 912: Add local LLM model download and manifest tooling - Completed on 05/18/2026 16:08
+Task 913: Add llama.cpp benchmark runner for candidate models - Completed on 05/18/2026 16:08
+Task 914: Add GPU load and stability test workflow for local LLM runtime - Completed on 05/18/2026 16:08
+Task 915: Store and surface local LLM benchmark results - Completed on 05/18/2026 16:08

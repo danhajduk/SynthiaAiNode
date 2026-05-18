@@ -8,6 +8,7 @@ from ai_node.runtime.service_manager import UserSystemdServiceManager
 class _Completed:
     def __init__(self, stdout: str):
         self.stdout = stdout
+        self.stderr = ""
 
 
 class ServiceManagerTests(unittest.TestCase):
@@ -17,27 +18,27 @@ class ServiceManagerTests(unittest.TestCase):
         calls = {"count": 0}
 
         def _fake_run(cmd, check, capture_output, text, env):
+            if cmd[:3] == ["systemctl", "--user", "show"]:
+                return _Completed("MainPID=0\n")
             self.assertEqual(cmd[:3], ["systemctl", "--user", "is-active"])
             calls["count"] += 1
             return _Completed("active\n" if calls["count"] == 1 else "failed\n")
 
         with patch("subprocess.run", side_effect=_fake_run):
             payload = manager.get_status()
-        self.assertEqual(payload["backend"], "running")
-        self.assertEqual(payload["frontend"], "failed")
+        self.assertEqual(payload["backend"]["state"], "running")
+        self.assertEqual(payload["frontend"]["state"], "failed")
+        self.assertEqual(payload["local_llm"]["service_id"], "local_llm")
         self.assertEqual(payload["node"], "degraded")
 
     def test_restart_node_restarts_both_units(self):
         manager = UserSystemdServiceManager(logger=logging.getLogger("service-manager-test"))
         invoked = []
 
-        def _fake_run(cmd, check, capture_output, text, env):
+        def _fake_popen(cmd, **_kwargs):
             invoked.append(cmd)
-            if cmd[2] == "is-active":
-                return _Completed("active\n")
-            return _Completed("")
 
-        with patch("subprocess.run", side_effect=_fake_run):
+        with patch("subprocess.Popen", side_effect=_fake_popen):
             result = manager.restart(target="node")
         self.assertEqual(result["target"], "node")
         restart_calls = [cmd for cmd in invoked if cmd[2] == "restart"]
@@ -47,13 +48,15 @@ class ServiceManagerTests(unittest.TestCase):
         manager = UserSystemdServiceManager(logger=logging.getLogger("service-manager-test"))
 
         def _fake_run(cmd, check, capture_output, text, env):
+            if cmd[:3] == ["systemctl", "--user", "show"]:
+                return _Completed("MainPID=0\n")
             self.assertEqual(cmd[:3], ["systemctl", "--user", "is-active"])
             return _Completed("activating\n")
 
         with patch("subprocess.run", side_effect=_fake_run):
             payload = manager.get_status()
-        self.assertEqual(payload["backend"], "running")
-        self.assertEqual(payload["frontend"], "running")
+        self.assertEqual(payload["backend"]["state"], "running")
+        self.assertEqual(payload["frontend"]["state"], "running")
         self.assertEqual(payload["node"], "running")
 
     def test_schedule_restart_launches_detached_restart_command(self):

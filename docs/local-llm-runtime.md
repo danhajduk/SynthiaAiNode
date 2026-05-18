@@ -1,0 +1,53 @@
+# Local LLM Runtime
+
+Hexe can run a local llama.cpp server beside the node and prefer Unix sockets for local traffic.
+
+## Default Model Set
+
+The default runtime target is `Qwen/Qwen3-8B-GGUF:Q4_K_M` with alias `qwen3-8b-q4_k_m`.
+This is intended for reasoning and classification on hosts with roughly 9.5-10 GB VRAM.
+
+Configured benchmark candidates live in `config/local-llm-models.json`:
+
+- `qwen3-8b-q4_k_m`: primary reasoning/classification candidate.
+- `qwen3-4b-q5_k_m`: safer VRAM fallback.
+- `qwen2.5-coder-7b-q4_k_m`: coding comparator.
+- `gemma-3-1b-it`: smoke/load-control slot; skipped by default until a specific GGUF filename is set.
+
+## Runtime Commands
+
+```bash
+scripts/llamacpp-control.sh build
+scripts/llamacpp-control.sh start
+scripts/llamacpp-control.sh ready
+scripts/llamacpp-control.sh status
+scripts/llamacpp-control.sh logs
+scripts/llamacpp-control.sh stop
+```
+
+The llama.cpp socket defaults to `/run/hexe/ai-node/llamacpp.sock`.
+The health wrapper socket defaults to `/run/hexe/ai-node/llamacpp-health.sock`.
+
+## Model Download And Benchmarks
+
+```bash
+scripts/download-local-llm-models.py --dry-run
+scripts/download-local-llm-models.py
+scripts/benchmark-local-llm.py --model qwen3-8b-q4_k_m
+scripts/local-llm-gpu-load-test.py --model qwen3-8b-q4_k_m --concurrency 1 --iterations 3
+```
+
+The downloader will not download an entire Hugging Face repository unless `--allow-full-repo` is supplied.
+
+## Provider Comparison
+
+Use `POST /api/execution/compare` to run the same prompt through explicit provider/model pairs and compare latency, text, usage, and estimated cost.
+
+Example provider list:
+
+```json
+[
+  {"provider": "openai", "model": "gpt-5-mini"},
+  {"provider": "local", "model": "qwen3-8b-q4_k_m"}
+]
+```

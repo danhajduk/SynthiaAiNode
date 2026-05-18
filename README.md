@@ -119,7 +119,7 @@ curl -X POST http://127.0.0.1:9002/api/capabilities/declare
 
 Manual price file:
 
-- Edit [config/openai-pricing.yaml](/home/dan/Projects/HexeAiNode/config/openai-pricing.yaml)
+- Edit [config/openai-pricing.yaml](/home/dan/hexe/HexeAiNode/config/openai-pricing.yaml)
 - YAML values in that file take precedence over fetched pricing and JSON pricing snapshots
 - Fields are per model: `Input`, `Cached input`, `Output`
 

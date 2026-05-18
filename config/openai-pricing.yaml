@@ -27,6 +27,14 @@ models:
     Input: 30
     Cached input: null
     Output: 180
+  gpt-5.5:
+    Input: null
+    Cached input: null
+    Output: null
+  gpt-5.5-pro:
+    Input: null
+    Cached input: null
+    Output: null
   gpt-image-1-mini:
     Input: null
     Cached input: null
@@ -35,7 +43,15 @@ models:
     Input: null
     Cached input: null
     Output: null
+  gpt-image-2:
+    Input: null
+    Cached input: null
+    Output: null
   gpt-realtime-1.5:
+    Input: null
+    Cached input: null
+    Output: null
+  gpt-realtime-2:
     Input: null
     Cached input: null
     Output: null

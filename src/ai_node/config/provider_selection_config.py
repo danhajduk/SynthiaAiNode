@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 DEFAULT_PROVIDER_SELECTION_SCHEMA_VERSION = "1.0"
 DEFAULT_OPENAI_PROVIDER = "openai"
+DEFAULT_LOCAL_PROVIDER = "local"
 VALID_PROVIDER_BUDGET_PERIODS = {"weekly", "monthly"}
 
 
@@ -101,7 +102,9 @@ def create_provider_selection_config(input_data: dict | None = None) -> dict:
     cloud_supported = _normalize_string_list(raw.get("supported_cloud_providers")) or [DEFAULT_OPENAI_PROVIDER]
     if DEFAULT_OPENAI_PROVIDER not in cloud_supported:
         cloud_supported.append(DEFAULT_OPENAI_PROVIDER)
-    local_supported = _normalize_string_list(raw.get("supported_local_providers"))
+    local_supported = _normalize_string_list(raw.get("supported_local_providers")) or [DEFAULT_LOCAL_PROVIDER]
+    if DEFAULT_LOCAL_PROVIDER not in local_supported:
+        local_supported.append(DEFAULT_LOCAL_PROVIDER)
     future_supported = _normalize_string_list(raw.get("supported_future_providers"))
 
     enabled_providers = _normalize_string_list(raw.get("enabled_providers"))

@@ -239,6 +239,47 @@ class ProviderRuntimeManager:
             )
         return response
 
+    async def execute_explicit(self, request: UnifiedExecutionRequest) -> UnifiedExecutionResponse:
+        provider_id = str(request.requested_provider or "").strip().lower()
+        if not provider_id:
+            raise ValueError("requested_provider_required")
+        adapter = self._registry.get_provider(provider_id)
+        if adapter is None:
+            settings = self._loader.load_provider_settings(provider_id=provider_id, enabled=True)
+            if settings is None:
+                raise ValueError("provider_not_configured")
+            adapter = self._build_adapter(provider_id=provider_id, settings=settings)
+            self._registry.register_provider(provider_id=provider_id, adapter=adapter)
+            health = await adapter.health_check()
+            self._registry.set_provider_health(provider_id=provider_id, payload=health)
+            models = await adapter.list_models()
+            self._registry.set_models_for_provider(provider_id=provider_id, models=models)
+        health = self._registry.get_provider_health(provider_id) or {}
+        availability = str(health.get("availability") or "").strip().lower()
+        if availability and availability not in {"available", "degraded"}:
+            raise RuntimeError("provider_unavailable")
+        try:
+            response = await adapter.execute_prompt(request)
+            self._metrics.record_success(
+                provider_id=response.provider_id,
+                model_id=response.model_id,
+                latency_ms=response.latency_ms,
+                prompt_tokens=response.usage.prompt_tokens,
+                cached_input_tokens=response.usage.cached_input_tokens,
+                completion_tokens=response.usage.completion_tokens,
+                estimated_cost=response.estimated_cost,
+            )
+            self._metrics.persist()
+            return response
+        except Exception as exc:
+            self._metrics.record_failure(
+                provider_id=provider_id,
+                model_id=str(request.requested_model or "unknown").strip() or "unknown",
+                error_class=type(exc).__name__,
+            )
+            self._metrics.persist()
+            raise
+
     def intelligence_payload(self) -> dict:
         registry_payload = self._registry.snapshot()
         metrics_payload = self._metrics.snapshot()
@@ -757,4 +798,11 @@ class ProviderRuntimeManager:
                 timeout_seconds=settings.timeout_seconds,
                 pricing_catalog_service=self._pricing_catalog_service,
             )
-        return LocalProviderAdapter(provider_id=provider_id)
+        return LocalProviderAdapter(
+            provider_id=provider_id,
+            default_model_id=getattr(settings, "default_model_id", None),
+            base_url=getattr(settings, "base_url", None) or "http://127.0.0.1:8011/v1",
+            transport=getattr(settings, "transport", None) or "socket",
+            socket_path=getattr(settings, "socket_path", None) or "/run/hexe/ai-node/llamacpp.sock",
+            timeout_seconds=settings.timeout_seconds,
+        )

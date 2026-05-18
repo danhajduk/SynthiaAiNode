@@ -6,7 +6,7 @@ Last Updated: 2026-04-04 US/Pacific
 
 Create a canonical Hexe node standard that fits both:
 
-- `HexeAiNode` at `/home/dan/Projects/HexeAiNode`
+- `HexeAiNode` at `/home/dan/hexe/HexeAiNode`
 - `HexeEmail` at `/home/dan/Projects/HexeEmail`
 
 The standard must minimize adaptation work. It should standardize node boundaries, contracts, and operator-facing behavior first, while allowing more than one acceptable internal implementation shape.

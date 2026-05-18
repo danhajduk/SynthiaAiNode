@@ -13,6 +13,8 @@ class ProviderSettings:
     api_key: str | None = None
     default_model_id: str | None = None
     base_url: str | None = None
+    transport: str | None = None
+    socket_path: str | None = None
     debug_aopenai: bool = False
     debug_aopenai_log_path: str | None = None
     timeout_seconds: float = 20.0
@@ -108,10 +110,50 @@ class ProviderConfigLoader:
                 max_cost_cents=int(max_cost_cents) if max_cost_cents is not None else None,
                 budget_period=str(budget_period).strip().lower() if budget_period is not None else None,
             )
+        local_default_model = (
+            str(os.environ.get("SYNTHIA_PROVIDER_LOCAL_DEFAULT_MODEL_ID") or "").strip() or None
+            if normalized_provider_id == "local"
+            else None
+        )
+        local_base_url = (
+            str(os.environ.get("SYNTHIA_PROVIDER_LOCAL_BASE_URL") or "").strip() or None
+            if normalized_provider_id == "local"
+            else None
+        )
+        local_transport = (
+            str(os.environ.get("SYNTHIA_PROVIDER_LOCAL_TRANSPORT") or "").strip() or None
+            if normalized_provider_id == "local"
+            else None
+        )
+        local_socket_path = (
+            str(os.environ.get("SYNTHIA_PROVIDER_LOCAL_SOCKET") or "").strip() or None
+            if normalized_provider_id == "local"
+            else None
+        )
         return ProviderSettings(
             provider_id=normalized_provider_id,
             provider_type="local",
             enabled=bool(enabled),
+            default_model_id=_first_non_empty_string(
+                str(os.environ.get(f"SYNTHIA_PROVIDER_{upper}_DEFAULT_MODEL_ID") or "").strip() or None,
+                local_default_model,
+                "qwen3-8b-q4_k_m" if normalized_provider_id == "local" else None,
+            ),
+            base_url=_first_non_empty_string(
+                str(os.environ.get(f"SYNTHIA_PROVIDER_{upper}_BASE_URL") or "").strip() or None,
+                local_base_url,
+                "http://127.0.0.1:8011/v1" if normalized_provider_id == "local" else None,
+            ),
+            transport=_first_non_empty_string(
+                str(os.environ.get(f"SYNTHIA_PROVIDER_{upper}_TRANSPORT") or "").strip() or None,
+                local_transport,
+                "socket" if normalized_provider_id == "local" else None,
+            ),
+            socket_path=_first_non_empty_string(
+                str(os.environ.get(f"SYNTHIA_PROVIDER_{upper}_SOCKET") or "").strip() or None,
+                local_socket_path,
+                "/run/hexe/ai-node/llamacpp.sock" if normalized_provider_id == "local" else None,
+            ),
             timeout_seconds=max(timeout, 1.0),
             retry_count=max(retries, 0),
             max_cost_cents=int(max_cost_cents) if max_cost_cents is not None else None,

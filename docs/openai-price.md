@@ -1,0 +1,43 @@
+# OpenAI Image Generation Pricing
+
+Verified: 2026-05-10
+
+This table records OpenAI image generation prices per generated image in USD. Prices vary by model, quality, and output size.
+
+## Price Per Image
+
+| Model | Quality | 1024x1024 | 1024x1536 | 1536x1024 |
+| --- | --- | ---: | ---: | ---: |
+| GPT Image 2 | Low | $0.006 | $0.005 | $0.005 |
+| GPT Image 2 | Medium | $0.053 | $0.041 | $0.041 |
+| GPT Image 2 | High | $0.211 | $0.165 | $0.165 |
+| GPT Image 1.5 | Low | $0.009 | $0.013 | $0.013 |
+| GPT Image 1.5 | Medium | $0.034 | $0.050 | $0.050 |
+| GPT Image 1.5 | High | $0.133 | $0.200 | $0.200 |
+| GPT Image 1 | Low | $0.011 | $0.016 | $0.016 |
+| GPT Image 1 | Medium | $0.042 | $0.063 | $0.063 |
+| GPT Image 1 | High | $0.167 | $0.250 | $0.250 |
+| GPT Image 1 Mini | Low | $0.005 | $0.006 | $0.006 |
+| GPT Image 1 Mini | Medium | $0.011 | $0.015 | $0.015 |
+| GPT Image 1 Mini | High | $0.036 | $0.052 | $0.052 |
+
+## Token Rates
+
+OpenAI also lists image model token rates separately on the pricing page.
+
+| Model | Modality | Input / 1M | Cached input / 1M | Output / 1M |
+| --- | --- | ---: | ---: | ---: |
+| gpt-image-2 | Image | $8.00 | $2.00 | $30.00 |
+| gpt-image-2 | Text | $5.00 | $1.25 | - |
+| gpt-image-1.5 | Image | $8.00 | $2.00 | $32.00 |
+| gpt-image-1.5 | Text | $5.00 | $1.25 | $10.00 |
+| gpt-image-1-mini | Image | $2.50 | $0.25 | $8.00 |
+| gpt-image-1-mini | Text | $2.00 | $0.20 | - |
+
+Sources:
+
+- OpenAI pricing page: https://developers.openai.com/api/docs/pricing
+- GPT Image 2 model page: https://developers.openai.com/api/docs/models/gpt-image-2
+- GPT Image 1.5 model page: https://developers.openai.com/api/docs/models/gpt-image-1.5
+- GPT Image 1 model page: https://developers.openai.com/api/docs/models/gpt-image-1
+- GPT Image 1 Mini model page: https://developers.openai.com/api/docs/models/gpt-image-1-mini

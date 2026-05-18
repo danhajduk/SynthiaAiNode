@@ -2,12 +2,12 @@
 
 This repo follows the Hexe node scripts and operations baseline through:
 
-- [scripts/bootstrap.sh](/home/dan/Projects/HexeAiNode/scripts/bootstrap.sh)
-- [scripts/run-from-env.sh](/home/dan/Projects/HexeAiNode/scripts/run-from-env.sh)
-- [scripts/stack-control.sh](/home/dan/Projects/HexeAiNode/scripts/stack-control.sh)
-- [scripts/restart-stack.sh](/home/dan/Projects/HexeAiNode/scripts/restart-stack.sh)
-- [scripts/stack.env.example](/home/dan/Projects/HexeAiNode/scripts/stack.env.example)
-- [scripts/systemd/](/home/dan/Projects/HexeAiNode/scripts/systemd)
+- [scripts/bootstrap.sh](/home/dan/hexe/HexeAiNode/scripts/bootstrap.sh)
+- [scripts/run-from-env.sh](/home/dan/hexe/HexeAiNode/scripts/run-from-env.sh)
+- [scripts/stack-control.sh](/home/dan/hexe/HexeAiNode/scripts/stack-control.sh)
+- [scripts/restart-stack.sh](/home/dan/hexe/HexeAiNode/scripts/restart-stack.sh)
+- [scripts/stack.env.example](/home/dan/hexe/HexeAiNode/scripts/stack.env.example)
+- [scripts/systemd/](/home/dan/hexe/HexeAiNode/scripts/systemd)
 
 ## Canonical Local Operations Paths
 

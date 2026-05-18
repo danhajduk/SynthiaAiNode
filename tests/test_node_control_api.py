@@ -43,6 +43,9 @@ class NodeControlApiTests(unittest.TestCase):
                 estimated_cost=0.001,
             )
 
+        async def execute_explicit(self, request):
+            return await self.execute(request)
+
         async def refresh_openai_models_from_saved_credentials(self):
             self.openai_reload_calls += 1
             return {"status": "refreshed", "provider_id": "openai", "classification_model": "gpt-5-mini"}
@@ -504,6 +507,38 @@ class NodeControlApiTests(unittest.TestCase):
                         )
                     )
                 )
+
+    def test_compare_provider_execution_returns_per_provider_results(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
+            runtime_manager = self._FakeProviderRuntimeManager()
+            state = NodeControlState(
+                lifecycle=lifecycle,
+                config_path=str(Path(tmp) / "bootstrap_config.json"),
+                logger=logging.getLogger("node-control-test"),
+                provider_runtime_manager=runtime_manager,
+            )
+
+            result = asyncio.run(
+                state.compare_provider_execution(
+                    task_family="task.classification",
+                    prompt="classify hello",
+                    system_prompt=None,
+                    messages=None,
+                    providers=[
+                        {"provider": "openai", "model": "gpt-5-mini"},
+                        {"provider": "local", "model": "qwen3-8b-q4_k_m"},
+                    ],
+                    temperature=0.0,
+                    max_tokens=64,
+                )
+            )
+
+            self.assertEqual(result["status"], "completed")
+            self.assertEqual([item["provider"] for item in result["results"]], ["openai", "local"])
+            self.assertEqual(result["results"][0]["model"], "gpt-5-mini")
+            self.assertEqual(result["results"][1]["model"], "qwen3-8b-q4_k_m")
+            self.assertEqual(result["results"][0]["estimated_cost"], 0.001)
 
     def test_initiate_onboarding_persists_config_and_moves_state(self):
         with tempfile.TemporaryDirectory() as tmp:

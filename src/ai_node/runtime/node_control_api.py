@@ -18,6 +18,7 @@ from ai_node.execution.task_models import TaskExecutionRequest
 from ai_node.config.provider_credentials_config import summarize_provider_credentials
 from ai_node.core_api.budget_declaration_client import BudgetDeclarationClient
 from ai_node.core_api.trust_status_client import TrustStatusClient
+from ai_node.providers.models import UnifiedExecutionRequest
 from ai_node.providers.openai_model_catalog import select_representative_openai_model_ids
 from ai_node.prompts import PromptRegistry
 from ai_node.config.task_capability_selection_config import DECLARABLE_TASK_FAMILIES, create_task_capability_selection_config
@@ -809,8 +810,43 @@ class NodeControlState:
 
     def service_status_payload(self) -> dict:
         if self._service_manager is None or not hasattr(self._service_manager, "get_status"):
-            return {"configured": False, "services": {"backend": "unknown", "frontend": "unknown", "node": "unknown"}}
-        return {"configured": True, "services": self._service_manager.get_status()}
+            return {
+                "configured": False,
+                "services": {"backend": "unknown", "frontend": "unknown", "local_llm": "unknown", "node": "unknown"},
+                "local_llm_benchmark": self._local_llm_benchmark_payload(),
+            }
+        return {
+            "configured": True,
+            "services": self._service_manager.get_status(),
+            "local_llm_benchmark": self._local_llm_benchmark_payload(),
+        }
+
+    def _local_llm_benchmark_payload(self) -> dict:
+        path = Path(os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_PATH") or ".run/local_llm_benchmark.json")
+        if not path.exists():
+            return {"configured": True, "path": str(path), "available": False}
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return {"configured": True, "path": str(path), "available": False, "error": str(exc)}
+        results = payload.get("results") if isinstance(payload, dict) else []
+        completed = [item for item in results if isinstance(item, dict) and item.get("status") == "completed"]
+        failed = [item for item in results if isinstance(item, dict) and item.get("status") != "completed"]
+        latencies = [
+            float(item.get("elapsed_ms"))
+            for item in completed
+            if isinstance(item.get("elapsed_ms"), (int, float)) or str(item.get("elapsed_ms") or "").replace(".", "", 1).isdigit()
+        ]
+        return {
+            "configured": True,
+            "path": str(path),
+            "available": True,
+            "model": payload.get("model") if isinstance(payload, dict) else None,
+            "generated_at": payload.get("generated_at") if isinstance(payload, dict) else None,
+            "completed": len(completed),
+            "failed": len(failed),
+            "avg_elapsed_ms": round(sum(latencies) / len(latencies), 3) if latencies else None,
+        }
 
     def provider_credentials_payload(self, *, provider_id: str) -> dict:
         summary = (
@@ -1288,6 +1324,78 @@ class NodeControlState:
         result = await service.execute(request)
         return result.model_dump(mode="json")
 
+    async def compare_provider_execution(
+        self,
+        *,
+        task_family: str,
+        prompt: str | None,
+        system_prompt: str | None,
+        messages: list[dict] | None,
+        providers: list[dict],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict:
+        if self._provider_runtime_manager is None or not hasattr(self._provider_runtime_manager, "execute_explicit"):
+            raise ValueError("provider runtime manager is not configured")
+        provider_specs = [item for item in list(providers or []) if isinstance(item, dict)]
+        if not provider_specs:
+            raise ValueError("providers_required")
+        results = []
+        for provider_spec in provider_specs:
+            provider_id = str(provider_spec.get("provider") or provider_spec.get("provider_id") or "").strip().lower()
+            model_id = str(provider_spec.get("model") or provider_spec.get("model_id") or "").strip() or None
+            if not provider_id:
+                results.append({"status": "failed", "error": "provider_required"})
+                continue
+            started = time.perf_counter()
+            try:
+                response = await self._provider_runtime_manager.execute_explicit(
+                    UnifiedExecutionRequest(
+                        task_family=task_family,
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        messages=list(messages or []),
+                        requested_provider=provider_id,
+                        requested_model=model_id,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        metadata={"comparison": True},
+                    )
+                )
+                results.append(
+                    {
+                        "provider": response.provider_id,
+                        "model": response.model_id,
+                        "status": "completed",
+                        "latency_ms": response.latency_ms,
+                        "total_elapsed_ms": round((time.perf_counter() - started) * 1000.0, 3),
+                        "output_text": response.output_text,
+                        "usage": response.usage.model_dump(mode="json"),
+                        "estimated_cost": response.estimated_cost,
+                        "finish_reason": response.finish_reason,
+                    }
+                )
+            except Exception as exc:
+                results.append(
+                    {
+                        "provider": provider_id,
+                        "model": model_id,
+                        "status": "failed",
+                        "latency_ms": None,
+                        "total_elapsed_ms": round((time.perf_counter() - started) * 1000.0, 3),
+                        "output_text": None,
+                        "usage": None,
+                        "estimated_cost": None,
+                        "error": str(exc).strip() or type(exc).__name__,
+                    }
+                )
+        return {
+            "status": "completed",
+            "task_family": task_family,
+            "results": results,
+            "generated_at": local_now_iso(),
+        }
+
     async def refresh_budget_policy(self) -> dict:
         if self._budget_manager is None:
             raise ValueError("budget manager is not configured")
@@ -1417,7 +1525,13 @@ class NodeControlState:
         result = self._service_manager.stop(target=target)
         return {"status": "ok", **result, "services": self._service_manager.get_status()}
 
-    def update_provider_selection(self, *, openai_enabled: bool, provider_budget_limits: dict | None = None) -> dict:
+    def update_provider_selection(
+        self,
+        *,
+        openai_enabled: bool,
+        local_enabled: bool | None = None,
+        provider_budget_limits: dict | None = None,
+    ) -> dict:
         if self._provider_selection_store is None or not hasattr(self._provider_selection_store, "save"):
             raise ValueError("provider selection store is not configured")
         payload = self._provider_selection_store.load_or_create(openai_enabled=False)
@@ -1427,6 +1541,11 @@ class NodeControlState:
             enabled.add("openai")
         else:
             enabled.discard("openai")
+        if local_enabled is not None:
+            if local_enabled:
+                enabled.add("local")
+            else:
+                enabled.discard("local")
         providers["enabled"] = sorted(enabled)
         normalized_budget_limits: dict[str, dict[str, int | str]] = {}
         if isinstance(provider_budget_limits, dict):
@@ -2698,6 +2817,7 @@ class ProviderSelectionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     openai_enabled: bool
+    local_enabled: bool | None = None
     provider_budget_limits: dict[str, dict[str, int | str | None]] | None = None
 
 
@@ -2818,6 +2938,18 @@ class ExecutionAuthorizeRequest(BaseModel):
     inputs: dict | None = None
 
 
+class ExecutionCompareRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_family: str
+    prompt: str | None = None
+    system_prompt: str | None = None
+    messages: list[dict] | None = None
+    providers: list[dict]
+    temperature: float | None = None
+    max_tokens: int | None = None
+
+
 def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     app = FastAPI(title="Hexe AI Node Control API", version="0.1.0")
     configured_admin_token = str(os.environ.get("SYNTHIA_ADMIN_TOKEN") or "").strip()
@@ -2890,6 +3022,7 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
                 "/api/prompts/services/{prompt_id}/lifecycle",
                 "/api/prompts/services/{prompt_id}/probation",
                 "/api/execution/authorize",
+                "/api/execution/compare",
                 "/api/services/status",
                 "/api/services/restart",
                 "/debug/providers",
@@ -2931,6 +3064,7 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
         try:
             response = state.update_provider_selection(
                 openai_enabled=payload.openai_enabled,
+                local_enabled=payload.local_enabled,
                 provider_budget_limits=payload.provider_budget_limits,
             )
             return {**response, "declaration": {"status": "pending_manual", "reason": "provider_configuration_changed"}}
@@ -3314,6 +3448,21 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     async def post_execution_direct(payload: TaskExecutionRequest):
         try:
             return await state.execute_direct(request=payload)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/execution/compare")
+    async def post_execution_compare(payload: ExecutionCompareRequest):
+        try:
+            return await state.compare_provider_execution(
+                task_family=payload.task_family,
+                prompt=payload.prompt,
+                system_prompt=payload.system_prompt,
+                messages=payload.messages,
+                providers=payload.providers,
+                temperature=payload.temperature,
+                max_tokens=payload.max_tokens,
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

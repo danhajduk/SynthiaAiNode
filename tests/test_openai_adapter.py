@@ -373,6 +373,64 @@ class OpenAIAdapterExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.model_id, "gpt-image-1-mini")
         self.assertEqual(response.usage.prompt_tokens, 12)
 
+    async def test_debug_image_generation_overwrites_latest_prompt_file(self):
+        capture: dict = {}
+        response_payload = {
+            "created": 1770000000,
+            "data": [{"b64_json": "aW1hZ2U="}],
+            "usage": {"input_tokens": 12, "output_tokens": 2, "total_tokens": 14},
+        }
+
+        def _client_factory(*args, **kwargs):
+            return _FakeAsyncClient(capture=capture, payload=response_payload, **kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            debug_log_path = Path(tmp) / "openai_debug.jsonl"
+            latest_prompt_path = Path(tmp) / "openai_last_image_prompt.txt"
+            adapter = OpenAIProviderAdapter(
+                api_key=TEST_OPENAI_CREDENTIAL,
+                debug_aopenai=True,
+                debug_aopenai_log_path=str(debug_log_path),
+            )
+
+            with patch("ai_node.providers.adapters.openai_adapter.httpx.AsyncClient", side_effect=_client_factory):
+                await adapter.execute_prompt(
+                    UnifiedExecutionRequest(
+                        task_family="task.image_generation",
+                        prompt="First weather prompt",
+                        requested_model="gpt-image-1-mini",
+                        metadata={
+                            "prompt_id": "prompt.weather.condition_background",
+                            "prompt_version": "v4",
+                            "size": "1536x1024",
+                            "output_format": "png",
+                        },
+                    )
+                )
+                await adapter.execute_prompt(
+                    UnifiedExecutionRequest(
+                        task_family="task.image_generation",
+                        prompt="Second weather prompt",
+                        requested_model="gpt-image-1-mini",
+                        metadata={
+                            "prompt_id": "prompt.weather.condition_background",
+                            "prompt_version": "v4",
+                            "size": "1536x1024",
+                            "output_format": "png",
+                        },
+                    )
+                )
+
+            self.assertTrue(debug_log_path.exists())
+            self.assertEqual(len(debug_log_path.read_text(encoding="utf-8").splitlines()), 2)
+            latest_prompt = latest_prompt_path.read_text(encoding="utf-8")
+            self.assertIn("prompt_id: prompt.weather.condition_background", latest_prompt)
+            self.assertIn("model: gpt-image-1-mini", latest_prompt)
+            self.assertIn("size: 1536x1024", latest_prompt)
+            self.assertIn("output_format: png", latest_prompt)
+            self.assertIn("Second weather prompt", latest_prompt)
+            self.assertNotIn("First weather prompt", latest_prompt)
+
     async def test_structured_extraction_does_not_send_json_schema_response_format(self):
         capture: dict = {}
         response_payload = {

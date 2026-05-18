@@ -77,14 +77,14 @@ Provider-specific:
 - `.run/` remains local runtime state and should not be committed.
 - `logs/` remains local runtime logging and should not be committed.
 - `data/` is also treated as local runtime output in this repository and is gitignored by default.
-- runtime path ownership is documented in [runtime-path-ownership.md](/home/dan/Projects/HexeAiNode/docs/runtime-path-ownership.md).
+- runtime path ownership is documented in [runtime-path-ownership.md](/home/dan/hexe/HexeAiNode/docs/runtime-path-ownership.md).
 
 ## Secrets Handling
 
 - Trust tokens and operational MQTT tokens are stored in trust state and must not be logged or committed.
 - OpenAI provider credentials may be supplied through environment or saved locally in `.run/provider_credentials.json`; they must not be logged or committed.
 - `.run/`, `.venv/`, `logs/`, and local Core doc symlinks are ignored in git.
-- detailed verified handling for trust tokens, provider credentials, redaction, and debug artifacts is documented in [security-and-sensitive-state.md](/home/dan/Projects/HexeAiNode/docs/security-and-sensitive-state.md).
+- detailed verified handling for trust tokens, provider credentials, redaction, and debug artifacts is documented in [security-and-sensitive-state.md](/home/dan/hexe/HexeAiNode/docs/security-and-sensitive-state.md).
 
 ## Defaults And Required Values
 
