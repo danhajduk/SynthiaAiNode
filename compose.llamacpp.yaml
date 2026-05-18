@@ -1,14 +1,24 @@
+version: "2.3"
+
 services:
   llamacpp:
-    image: ${LLAMACPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
+    image: ${LLAMACPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda-b7869}
     container_name: ${LLAMACPP_CONTAINER_NAME:-hexe-ai-node-llamacpp}
     restart: unless-stopped
-    gpus: all
+    runtime: nvidia
+    user: ${LLAMACPP_UID:-1000}:${LLAMACPP_GID:-1000}
+    environment:
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-all}
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      LD_PRELOAD: ${LLAMACPP_LD_PRELOAD:-/usr/lib/x86_64-linux-gnu/nvidia/current/libcuda.so.1}
+      HOME: /cache
+      XDG_CACHE_HOME: /cache
     volumes:
       - ${LLAMACPP_MODEL_DIR:-./runtime/models/llamacpp}:/models:ro
+      - ${LLAMACPP_CACHE_DIR:-./runtime/cache/llamacpp}:/cache
       - ${LLAMACPP_SOCKET_DIR:-/run/hexe/ai-node}:/run/hexe/ai-node
     command:
-      - --hf
+      - --hf-repo
       - ${LLAMACPP_MODEL_HF:-Qwen/Qwen3-8B-GGUF:Q4_K_M}
       - --alias
       - ${LLAMACPP_MODEL_ALIAS:-qwen3-8b-q4_k_m}

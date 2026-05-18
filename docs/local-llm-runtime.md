@@ -1,6 +1,7 @@
 # Local LLM Runtime
 
 Hexe can run a local llama.cpp server beside the node and prefer Unix sockets for local traffic.
+The default container image is pinned to `ghcr.io/ggml-org/llama.cpp:server-cuda-b7869` for compatibility with this host's NVIDIA 535 / CUDA 12.4 driver stack; the plain `server` tag is CPU-only on this host.
 
 ## Default Model Set
 
@@ -27,6 +28,7 @@ scripts/llamacpp-control.sh stop
 
 The llama.cpp socket defaults to `/run/hexe/ai-node/llamacpp.sock`.
 The health wrapper socket defaults to `/run/hexe/ai-node/llamacpp-health.sock`.
+Downloaded model cache defaults to `runtime/cache/llamacpp` so Hugging Face downloads survive container recreation.
 
 ## Model Download And Benchmarks
 

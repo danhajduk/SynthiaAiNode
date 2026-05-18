@@ -13,16 +13,20 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 export LLAMACPP_CONTAINER_NAME="${LLAMACPP_CONTAINER_NAME:-hexe-ai-node-llamacpp}"
-export LLAMACPP_IMAGE="${LLAMACPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}"
+export LLAMACPP_IMAGE="${LLAMACPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda-b7869}"
 export LLAMACPP_MODEL_HF="${LLAMACPP_MODEL_HF:-Qwen/Qwen3-8B-GGUF:Q4_K_M}"
 export LLAMACPP_MODEL_ALIAS="${LLAMACPP_MODEL_ALIAS:-qwen3-8b-q4_k_m}"
 export LLAMACPP_MODEL_DIR="${LLAMACPP_MODEL_DIR:-$ROOT_DIR/runtime/models/llamacpp}"
+export LLAMACPP_CACHE_DIR="${LLAMACPP_CACHE_DIR:-$ROOT_DIR/runtime/cache/llamacpp}"
 export LLAMACPP_SOCKET_DIR="${LLAMACPP_SOCKET_DIR:-/run/hexe/ai-node}"
 export LLAMACPP_SOCKET_PATH="${LLAMACPP_SOCKET_PATH:-$LLAMACPP_SOCKET_DIR/llamacpp.sock}"
 export LLAMACPP_HEALTH_SOCKET="${LLAMACPP_HEALTH_SOCKET:-$LLAMACPP_SOCKET_DIR/llamacpp-health.sock}"
 export LLAMACPP_CTX_SIZE="${LLAMACPP_CTX_SIZE:-4096}"
 export LLAMACPP_N_GPU_LAYERS="${LLAMACPP_N_GPU_LAYERS:-99}"
 export LLAMACPP_PARALLEL="${LLAMACPP_PARALLEL:-1}"
+export LLAMACPP_LD_PRELOAD="${LLAMACPP_LD_PRELOAD:-/usr/lib/x86_64-linux-gnu/nvidia/current/libcuda.so.1}"
+export LLAMACPP_UID="${LLAMACPP_UID:-$(id -u)}"
+export LLAMACPP_GID="${LLAMACPP_GID:-$(id -g)}"
 LLAMACPP_CUDA_MODE="${LLAMACPP_CUDA_MODE:-auto}"
 LLAMACPP_CUDA_SMOKE_IMAGE="${LLAMACPP_CUDA_SMOKE_IMAGE:-nvidia/cuda:12.4.1-base-ubuntu22.04}"
 LLAMACPP_CUDA_CHECK_TIMEOUT_S="${LLAMACPP_CUDA_CHECK_TIMEOUT_S:-45}"
@@ -70,7 +74,9 @@ cuda_smoke_check() {
 
 prepare_runtime_dirs() {
   mkdir -p "$LLAMACPP_MODEL_DIR"
+  mkdir -p "$LLAMACPP_CACHE_DIR"
   mkdir -p "$LLAMACPP_SOCKET_DIR"
+  mkdir -p "$ROOT_DIR/.run"
 }
 
 select_runtime() {
@@ -100,11 +106,14 @@ start_health_wrapper() {
   if pgrep -f "scripts/llamacpp-health.py.*${LLAMACPP_HEALTH_SOCKET}" >/dev/null 2>&1; then
     return
   fi
-  "$PYTHON_BIN" "$ROOT_DIR/scripts/llamacpp-health.py" \
+  if [[ -S "$LLAMACPP_HEALTH_SOCKET" ]]; then
+    rm -f "$LLAMACPP_HEALTH_SOCKET"
+  fi
+  setsid nohup "$PYTHON_BIN" "$ROOT_DIR/scripts/llamacpp-health.py" \
     --socket-path "$LLAMACPP_HEALTH_SOCKET" \
     --llama-socket-path "$LLAMACPP_SOCKET_PATH" \
     --model-id "$LLAMACPP_MODEL_ALIAS" \
-    >/dev/null 2>&1 &
+    >"$ROOT_DIR/.run/llamacpp-health.log" 2>&1 &
 }
 
 health_probe() {
@@ -158,6 +167,7 @@ case "${1:-}" in
     ;;
   start)
     prepare_runtime_dirs
+    rm -f "$LLAMACPP_HEALTH_SOCKET"
     select_runtime
     compose up -d
     start_health_wrapper
@@ -165,6 +175,7 @@ case "${1:-}" in
   stop)
     compose down
     pkill -f "scripts/llamacpp-health.py.*${LLAMACPP_HEALTH_SOCKET}" >/dev/null 2>&1 || true
+    rm -f "$LLAMACPP_SOCKET_PATH" "$LLAMACPP_HEALTH_SOCKET"
     ;;
   restart)
     "$0" stop
