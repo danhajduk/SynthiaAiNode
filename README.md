@@ -175,6 +175,20 @@ curl -X POST http://127.0.0.1:9002/api/execution/authorize \
 
 ## Frontend run
 
+Production-style static frontend:
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+.venv/bin/python scripts/serve-frontend.py --host 0.0.0.0 --port 8081
+```
+
+The static server serves `frontend/dist` and proxies `/api` to the backend on `127.0.0.1:9002`.
+
+Development frontend:
+
 ```bash
 cd frontend
 npm install

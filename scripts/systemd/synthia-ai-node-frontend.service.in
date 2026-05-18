@@ -7,3 +7,6 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=__APP_DIR__
 ExecStart=/usr/bin/env bash __APP_DIR__/scripts/run-from-env.sh frontend
+
+[Install]
+WantedBy=default.target

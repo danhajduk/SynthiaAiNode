@@ -39,6 +39,17 @@ PYTHONPATH=src python -m ai_node.main --once
 
 Frontend:
 
+Production-style static frontend:
+
+```bash
+cd frontend
+npm run build
+cd ..
+.venv/bin/python scripts/serve-frontend.py --host 0.0.0.0 --port 8081
+```
+
+Development frontend:
+
 ```bash
 cd frontend
 npm run dev -- --host 0.0.0.0 --port 8081
