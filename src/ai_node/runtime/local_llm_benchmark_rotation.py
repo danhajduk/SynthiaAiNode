@@ -1,6 +1,8 @@
 import asyncio
 import json
 import os
+import socket
+import urllib.request
 from pathlib import Path
 from typing import Awaitable, Callable
 
@@ -56,7 +58,7 @@ class LocalLLMBenchmarkRotationRunner:
     def status_payload(self) -> dict:
         state = self._load_state()
         models = self._load_models()
-        current_model_id = str(state.get("current_model_id") or "").strip() or None
+        current_model_id = self._live_model_id() or str(state.get("current_model_id") or "").strip() or None
         return {
             "configured": True,
             "current_model_id": current_model_id,
@@ -64,6 +66,36 @@ class LocalLLMBenchmarkRotationRunner:
             "updated_at": state.get("updated_at"),
             "last_result": state.get("last_result") if isinstance(state.get("last_result"), dict) else None,
         }
+
+    @staticmethod
+    def _live_model_id() -> str | None:
+        transport = str(os.environ.get("SYNTHIA_PROVIDER_LOCAL_TRANSPORT") or "socket").strip().lower()
+        try:
+            if transport == "socket":
+                socket_path = str(os.environ.get("SYNTHIA_PROVIDER_LOCAL_SOCKET") or "/run/hexe/ai-node/llamacpp.sock")
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                    client.settimeout(2)
+                    client.connect(socket_path)
+                    client.sendall(b"GET /v1/models HTTP/1.1\r\nHost: llamacpp\r\nConnection: close\r\n\r\n")
+                    data = b""
+                    while True:
+                        chunk = client.recv(65536)
+                        if not chunk:
+                            break
+                        data += chunk
+                body = data.decode("utf-8", errors="replace").split("\r\n\r\n", 1)[-1]
+                payload = json.loads(body)
+            else:
+                base_url = str(os.environ.get("SYNTHIA_PROVIDER_LOCAL_BASE_URL") or "http://127.0.0.1:8011/v1").rstrip("/")
+                with urllib.request.urlopen(f"{base_url}/models", timeout=2) as response:
+                    payload = json.loads(response.read().decode("utf-8", errors="replace"))
+        except Exception:
+            return None
+        models = payload.get("data") if isinstance(payload, dict) else []
+        if not isinstance(models, list) or not models:
+            return None
+        first = models[0] if isinstance(models[0], dict) else {}
+        return str(first.get("id") or "").strip() or None
 
     def _next_model(self) -> dict:
         models = self._load_models()
