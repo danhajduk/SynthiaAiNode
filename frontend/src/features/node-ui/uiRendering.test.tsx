@@ -94,6 +94,11 @@ function buildOperationalProps(overrides = {}) {
           { id: "mistral-nemo-instruct-2407-q4_k_m" },
         ],
       },
+      active_benchmark: {
+        active: true,
+        current_model_id: "qwen3-8b-q4_k_m",
+        running_count: 1,
+      },
       status_counts: { pending: 1, completed: 1, failed: 0 },
       comparisons: [
         {
@@ -293,6 +298,8 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("5,456 MiB");
     expect(markup).toContain("42%");
     expect(markup).toContain("Cycle Model");
+    expect(markup).toContain("Active");
+    expect(markup).toContain("Benchmark: qwen3-8b-q4_k_m");
   });
 
   it("shows friendly task kind and schedule names and sorts the legend by duration", () => {

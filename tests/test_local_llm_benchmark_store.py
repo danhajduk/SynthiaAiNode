@@ -65,6 +65,7 @@ class LocalLLMBenchmarkStoreTests(unittest.TestCase):
             completed = [item for item in comparison["local_results"] if item["model_id"] == "qwen3-8b-q4_k_m"][0]
             self.assertEqual(completed["vram_used_mib"], 5456)
             self.assertEqual(completed["gpu_util_percent"], 42)
+            self.assertEqual(payload["running"], [])
 
     def test_ignores_non_openai_execution(self):
         with tempfile.TemporaryDirectory() as tmp:

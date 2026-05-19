@@ -932,6 +932,22 @@ class NodeControlState:
         payload = self._local_llm_benchmark_store.summary_payload()
         if self._local_llm_benchmark_runner is not None and hasattr(self._local_llm_benchmark_runner, "status_payload"):
             payload["rotation"] = self._local_llm_benchmark_runner.status_payload()
+        scheduler = self.internal_scheduler_payload()
+        tasks = scheduler.get("tasks") if isinstance(scheduler, dict) else {}
+        benchmark_task = tasks.get("local_llm_benchmark_replay") if isinstance(tasks, dict) else {}
+        running_rows = list(payload.get("running") or []) if isinstance(payload, dict) else []
+        active = bool(
+            running_rows
+            or (isinstance(benchmark_task, dict) and (benchmark_task.get("running") or benchmark_task.get("status") == "running"))
+        )
+        payload["active_benchmark"] = {
+            "active": active,
+            "running_count": len(running_rows),
+            "scheduler_running": bool(isinstance(benchmark_task, dict) and benchmark_task.get("running")),
+            "scheduler_status": benchmark_task.get("status") if isinstance(benchmark_task, dict) else None,
+            "current_model_id": (payload.get("rotation") or {}).get("current_model_id") if isinstance(payload.get("rotation"), dict) else None,
+            "running": running_rows,
+        }
         return payload
 
     async def cycle_local_llm_benchmark_model(self) -> dict:

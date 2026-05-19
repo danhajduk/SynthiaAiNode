@@ -248,6 +248,15 @@ class LocalLLMBenchmarkStore:
                 GROUP BY status
                 """
             ).fetchall()
+            running_rows = connection.execute(
+                """
+                SELECT m.record_id, m.model_id, m.started_at, r.prompt_id, r.task_family
+                FROM benchmark_model_results m
+                JOIN benchmark_records r ON r.record_id = m.record_id
+                WHERE m.status = 'running'
+                ORDER BY m.started_at ASC
+                """
+            ).fetchall()
 
         results_by_record: dict[str, list[dict]] = {}
         for row in result_rows:
@@ -257,6 +266,16 @@ class LocalLLMBenchmarkStore:
             "path": str(self._path),
             "generated_at": local_now_iso(),
             "status_counts": {str(row["status"]): int(row["count"] or 0) for row in status_rows},
+            "running": [
+                {
+                    "record_id": str(row["record_id"]),
+                    "model_id": row["model_id"],
+                    "started_at": row["started_at"],
+                    "prompt_id": row["prompt_id"],
+                    "task_family": row["task_family"],
+                }
+                for row in running_rows
+            ],
             "comparisons": [
                 {
                     "record_id": str(row["record_id"]),

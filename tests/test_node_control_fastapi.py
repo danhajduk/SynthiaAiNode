@@ -115,6 +115,7 @@ class NodeControlFastApiTests(unittest.TestCase):
             return {
                 "configured": True,
                 "status_counts": {"pending": 1},
+                "running": [{"record_id": "openai-test", "model_id": "qwen3-8b-q4_k_m"}],
                 "comparisons": [{"record_id": "openai-test", "local_results": []}],
             }
 
@@ -516,6 +517,8 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertEqual(response.json()["status_counts"]["pending"], 1)
             self.assertEqual(response.json()["comparisons"][0]["record_id"], "openai-test")
             self.assertEqual(response.json()["rotation"]["current_model_id"], "qwen3-8b-q4_k_m")
+            self.assertTrue(response.json()["active_benchmark"]["active"])
+            self.assertEqual(response.json()["active_benchmark"]["running_count"], 1)
 
             cycle_response = client.post("/api/benchmarks/local-llm/cycle")
 

@@ -350,6 +350,13 @@ function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false })
       </div>
       <div className="client-usage-summary-grid">
         <div className="client-usage-metric-block">
+          <strong>{summary?.active_benchmark?.active ? "Active" : "Idle"}</strong>
+          <span>
+            Benchmark
+            {summary?.active_benchmark?.current_model_id ? `: ${summary.active_benchmark.current_model_id}` : ""}
+          </span>
+        </div>
+        <div className="client-usage-metric-block">
           <strong>{formatMetricValue(summary?.status_counts?.pending || 0)}</strong>
           <span>Pending</span>
         </div>
