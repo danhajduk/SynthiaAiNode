@@ -299,10 +299,10 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("Local LLM Benchmarks");
     expect(markup).toContain("prompt.email.classifier");
     expect(markup).toContain("gpt-5.4-nano");
-    expect(markup).toContain("Local LLM 1 = Qwen 8B");
-    expect(markup).toContain("Local LLM 2 = Qwen 14B");
-    expect(markup).toContain("Local LLM 3 = Gemma 12B");
-    expect(markup).toContain("Local LLM 4 = Mistral");
+    expect(markup).toContain("Qwen 8B");
+    expect(markup).toContain("Qwen 14B");
+    expect(markup).toContain("Gemma 12B");
+    expect(markup).toContain("Mistral");
     expect(markup).toContain("qwen3-8b-q4_k_m");
     expect(markup).toContain("Label Match");
     expect(markup).toContain("Avg Score Delta");

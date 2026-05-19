@@ -103,8 +103,8 @@ function localLlmDisplayName(modelId) {
   return LOCAL_LLM_DISPLAY_NAMES[String(modelId || "").trim()] || String(modelId || "local").trim() || "local";
 }
 
-function localLlmColumnTitle(modelId, index) {
-  return `Local LLM ${index + 1} = ${localLlmDisplayName(modelId)}`;
+function localLlmColumnTitle(modelId) {
+  return localLlmDisplayName(modelId);
 }
 
 function parseOutputPayload(outputText) {
