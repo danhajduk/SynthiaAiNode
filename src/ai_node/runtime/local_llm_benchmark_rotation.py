@@ -63,6 +63,27 @@ class LocalLLMBenchmarkRotationRunner:
         finally:
             self._set_activity_status("idle", model_id=None)
 
+    async def run_loaded_model(self) -> dict:
+        model_id = self._live_model_id() or str(self._load_state().get("current_model_id") or "").strip()
+        if not model_id:
+            raise ValueError("loaded_local_llm_model_required")
+        try:
+            self._set_activity_status("running", model_id=model_id)
+            worker_result = await self._worker.run_pending_for_model(
+                model_id=model_id,
+                limit=self._batch_limit,
+            )
+            result = {
+                "model_id": model_id,
+                "mode": "loaded_model",
+                "ran_at": local_now_iso(),
+                "worker_result": worker_result,
+            }
+            self._save_state(model_id=model_id, result=result)
+            return result
+        finally:
+            self._set_activity_status("idle", model_id=None)
+
     def status_payload(self) -> dict:
         state = self._load_state()
         models = self._load_models()

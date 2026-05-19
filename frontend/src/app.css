@@ -496,6 +496,36 @@
   background: hsl(var(--sx-panel));
 }
 
+.benchmark-status-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.benchmark-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid hsl(var(--sx-border) / 0.9);
+  border-radius: var(--sx-radius-pill);
+  background: hsl(var(--sx-panel));
+}
+
+.benchmark-status-pill strong,
+.benchmark-status-pill span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.benchmark-status-pill span {
+  color: hsl(var(--sx-muted));
+  font-size: 12px;
+}
+
 .client-usage-metric-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

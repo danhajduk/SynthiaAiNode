@@ -1057,6 +1057,16 @@ class NodeControlState:
             "benchmark": self.local_llm_benchmark_comparison_payload(),
         }
 
+    async def run_local_llm_benchmark_loaded_model(self) -> dict:
+        if self._local_llm_benchmark_runner is None or not hasattr(self._local_llm_benchmark_runner, "run_loaded_model"):
+            raise ValueError("local_llm_benchmark_runner_not_configured")
+        result = await self._local_llm_benchmark_runner.run_loaded_model()
+        return {
+            "status": "ok",
+            "result": result,
+            "benchmark": self.local_llm_benchmark_comparison_payload(),
+        }
+
     def _attach_client_grants(self, *, payload: dict) -> dict:
         clients = list(payload.get("clients") or []) if isinstance(payload, dict) else []
         budget_state = self.budget_state_payload()
@@ -3453,6 +3463,13 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     async def post_local_llm_benchmark_cycle():
         try:
             return await state.cycle_local_llm_benchmark_model()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/benchmarks/local-llm/run-loaded")
+    async def post_local_llm_benchmark_run_loaded():
+        try:
+            return await state.run_local_llm_benchmark_loaded_model()
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

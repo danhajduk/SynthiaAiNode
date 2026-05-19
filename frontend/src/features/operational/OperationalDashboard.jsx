@@ -363,6 +363,8 @@ function LocalLLMBenchmarkTable({
   summary,
   onCycleModel,
   cyclingModel = false,
+  onRunLoadedModel,
+  runningLoadedModel = false,
   onSetCaptureEnabled,
   captureChanging = false,
 }) {
@@ -416,10 +418,13 @@ function LocalLLMBenchmarkTable({
           <button className="btn btn-primary" type="button" onClick={onCycleModel} disabled={!onCycleModel || cyclingModel}>
             {cyclingModel ? "Cycling..." : "Cycle Model"}
           </button>
+          <button className="btn btn-primary" type="button" onClick={onRunLoadedModel} disabled={!onRunLoadedModel || runningLoadedModel}>
+            {runningLoadedModel ? "Running..." : "Run Loaded Model"}
+          </button>
         </div>
       </div>
-      <div className="client-usage-summary-grid">
-        <div className="client-usage-metric-block">
+      <div className="benchmark-status-pills">
+        <div className="benchmark-status-pill">
           <strong>
             {summary?.gpu_vram?.available
               ? `${formatMetricValue(summary.gpu_vram.memory_used_mib)} / ${formatMetricValue(summary.gpu_vram.memory_total_mib)} MiB`
@@ -427,26 +432,26 @@ function LocalLLMBenchmarkTable({
           </strong>
           <span>Current VRAM Load</span>
         </div>
-        <div className="client-usage-metric-block">
+        <div className="benchmark-status-pill">
           <strong>{formatMetricValue(summary?.gpu_vram?.llama_vram_mib, " MiB")}</strong>
           <span>llama.cpp VRAM</span>
         </div>
-        <div className="client-usage-metric-block">
+        <div className="benchmark-status-pill">
           <strong>{activeBenchmarkStatus}</strong>
           <span>
             Benchmark
             {summary?.active_benchmark?.current_model_id ? `: ${summary.active_benchmark.current_model_id}` : ""}
           </span>
         </div>
-        <div className="client-usage-metric-block">
+        <div className="benchmark-status-pill">
           <strong>{formatMetricValue(summary?.status_counts?.pending || 0)}</strong>
           <span>Pending</span>
         </div>
-        <div className="client-usage-metric-block">
+        <div className="benchmark-status-pill">
           <strong>{formatMetricValue(summary?.status_counts?.completed || 0)}</strong>
           <span>Completed</span>
         </div>
-        <div className="client-usage-metric-block">
+        <div className="benchmark-status-pill">
           <strong>{formatMetricValue(summary?.status_counts?.failed || 0)}</strong>
           <span>Failed</span>
         </div>
@@ -541,6 +546,8 @@ export function OperationalDashboard({
   localLlmBenchmarkSummary = null,
   onCycleLocalLlmModel,
   cyclingLocalLlmModel = false,
+  onRunLoadedLocalLlmModel,
+  runningLoadedLocalLlm = false,
   onSetLocalLlmBenchmarkCapture,
   localLlmBenchmarkCaptureChanging = false,
   governanceStatus = null,
@@ -661,6 +668,8 @@ export function OperationalDashboard({
             summary={localLlmBenchmarkSummary}
             onCycleModel={onCycleLocalLlmModel}
             cyclingModel={cyclingLocalLlmModel}
+            onRunLoadedModel={onRunLoadedLocalLlmModel}
+            runningLoadedModel={runningLoadedLocalLlm}
             onSetCaptureEnabled={onSetLocalLlmBenchmarkCapture}
             captureChanging={localLlmBenchmarkCaptureChanging}
           />

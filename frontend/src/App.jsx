@@ -150,6 +150,7 @@ export default function App() {
   const [clientUsageSummary, setClientUsageSummary] = useState({ currentMonth: "", clients: [] });
   const [localLlmBenchmarkSummary, setLocalLlmBenchmarkSummary] = useState({ comparisons: [], status_counts: {} });
   const [cyclingLocalLlmModel, setCyclingLocalLlmModel] = useState(false);
+  const [runningLoadedLocalLlm, setRunningLoadedLocalLlm] = useState(false);
   const [localLlmBenchmarkCaptureChanging, setLocalLlmBenchmarkCaptureChanging] = useState(false);
   const [runningAdminAction, setRunningAdminAction] = useState("");
   const [adminActionState, setAdminActionState] = useState("");
@@ -1122,6 +1123,27 @@ export default function App() {
     }
   }
 
+  async function onRunLoadedLocalLlmModel() {
+    if (runningLoadedLocalLlm) {
+      return;
+    }
+    setRunningLoadedLocalLlm(true);
+    setError("");
+    try {
+      const result = await apiPost("/api/benchmarks/local-llm/run-loaded", {});
+      if (result?.benchmark) {
+        setLocalLlmBenchmarkSummary(result.benchmark);
+      } else {
+        await loadStatus();
+      }
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setRunningLoadedLocalLlm(false);
+    }
+  }
+
   async function onSetLocalLlmBenchmarkCapture(enabled) {
     if (localLlmBenchmarkCaptureChanging) {
       return;
@@ -1711,6 +1733,8 @@ export default function App() {
     localLlmBenchmarkSummary,
     onCycleLocalLlmModel,
     cyclingLocalLlmModel,
+    onRunLoadedLocalLlmModel,
+    runningLoadedLocalLlm,
     onSetLocalLlmBenchmarkCapture,
     localLlmBenchmarkCaptureChanging,
     governanceStatus: governanceStatusPayload,

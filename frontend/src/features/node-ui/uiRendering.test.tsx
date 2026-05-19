@@ -313,6 +313,7 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("Clear Prompt List");
     expect(markup).toContain("Stop Fetching Prompts");
     expect(markup).toContain("Cycle Model");
+    expect(markup).toContain("Run Loaded Model");
     expect(markup).toContain("Running");
     expect(markup).toContain("Benchmark: qwen3-8b-q4_k_m");
     expect(markup).toContain("Current VRAM Load");

@@ -140,6 +140,9 @@ class NodeControlFastApiTests(unittest.TestCase):
         async def run_once(self):
             return {"model_id": "qwen3-14b-q4_k_m", "worker_result": {"processed": 0}}
 
+        async def run_loaded_model(self):
+            return {"model_id": "qwen3-8b-q4_k_m", "mode": "loaded_model", "worker_result": {"processed": 1}}
+
     class _FakeCapabilityRunner:
         def __init__(self):
             self.workflow_notifications = []
@@ -543,6 +546,11 @@ class NodeControlFastApiTests(unittest.TestCase):
 
             self.assertEqual(cycle_response.status_code, 200)
             self.assertEqual(cycle_response.json()["result"]["model_id"], "qwen3-14b-q4_k_m")
+
+            run_loaded_response = client.post("/api/benchmarks/local-llm/run-loaded")
+
+            self.assertEqual(run_loaded_response.status_code, 200)
+            self.assertEqual(run_loaded_response.json()["result"]["mode"], "loaded_model")
 
     def test_status_and_onboarding_endpoints(self):
         with tempfile.TemporaryDirectory() as tmp:
