@@ -297,6 +297,7 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("-0.1");
     expect(markup).toContain("5,456 MiB");
     expect(markup).toContain("42%");
+    expect(markup).toContain("Clear Prompt List");
     expect(markup).toContain("Cycle Model");
     expect(markup).toContain("Active");
     expect(markup).toContain("Benchmark: qwen3-8b-q4_k_m");

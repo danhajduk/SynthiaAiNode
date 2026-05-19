@@ -322,7 +322,9 @@ function BenchmarkDetailModal({ comparison, modelIds, onClose }) {
 
 function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false }) {
   const [selectedComparison, setSelectedComparison] = useState(null);
+  const [promptListCleared, setPromptListCleared] = useState(false);
   const comparisons = Array.isArray(summary?.comparisons) ? summary.comparisons : [];
+  const visibleComparisons = promptListCleared ? [] : comparisons;
   const configuredModels = Array.isArray(summary?.rotation?.models)
     ? summary.rotation.models.map((model) => model?.id).filter(Boolean)
     : [];
@@ -344,9 +346,19 @@ function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false })
           <span>Last Switch</span>
           <code>{summary?.rotation?.updated_at || "none"}</code>
         </div>
-        <button className="btn btn-primary" type="button" onClick={onCycleModel} disabled={!onCycleModel || cyclingModel}>
-          {cyclingModel ? "Cycling..." : "Cycle Model"}
-        </button>
+        <div className="row">
+          <button className="btn" type="button" onClick={() => setPromptListCleared(true)} disabled={promptListCleared || !comparisons.length}>
+            Clear Prompt List
+          </button>
+          {promptListCleared ? (
+            <button className="btn" type="button" onClick={() => setPromptListCleared(false)}>
+              Show Prompts
+            </button>
+          ) : null}
+          <button className="btn btn-primary" type="button" onClick={onCycleModel} disabled={!onCycleModel || cyclingModel}>
+            {cyclingModel ? "Cycling..." : "Cycle Model"}
+          </button>
+        </div>
       </div>
       <div className="client-usage-summary-grid">
         <div className="client-usage-metric-block">
@@ -383,8 +395,8 @@ function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false })
               </tr>
             </thead>
             <tbody>
-              {comparisons.length ? (
-                comparisons.map((comparison) => {
+              {visibleComparisons.length ? (
+                visibleComparisons.map((comparison) => {
                   const resultsByModel = Object.fromEntries(
                     (Array.isArray(comparison.local_results) ? comparison.local_results : []).map((result) => [result.model_id, result])
                   );
@@ -422,7 +434,7 @@ function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false })
               ) : (
                 <tr>
                   <td colSpan={2 + Math.max(modelIds.length, 1)} className="muted">
-                    No OpenAI benchmark records have been captured yet.
+                    {promptListCleared ? "Prompt list cleared in this view. Score summary is still using the captured benchmark data." : "No OpenAI benchmark records have been captured yet."}
                   </td>
                 </tr>
               )}
