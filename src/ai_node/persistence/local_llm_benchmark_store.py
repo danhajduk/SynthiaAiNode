@@ -110,6 +110,7 @@ class LocalLLMBenchmarkStore:
                     error TEXT,
                     vram_used_mib REAL,
                     vram_delta_mib REAL,
+                    gpu_util_percent REAL,
                     load_seconds REAL,
                     PRIMARY KEY (record_id, model_id),
                     FOREIGN KEY (record_id) REFERENCES benchmark_records(record_id) ON DELETE CASCADE
@@ -119,6 +120,22 @@ class LocalLLMBenchmarkStore:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_benchmark_model_status ON benchmark_model_results(status, model_id, created_at)"
             )
+            self._ensure_column(
+                connection=connection,
+                table="benchmark_model_results",
+                column="gpu_util_percent",
+                definition="REAL",
+            )
+
+    @staticmethod
+    def _ensure_column(*, connection: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+        columns = {
+            str(row["name"])
+            for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column in columns:
+            return
+        connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     @staticmethod
     def configured_model_ids(value: str | None = None) -> list[str]:
@@ -303,6 +320,7 @@ class LocalLLMBenchmarkStore:
         response: UnifiedExecutionResponse,
         vram_used_mib: float | None = None,
         vram_delta_mib: float | None = None,
+        gpu_util_percent: float | None = None,
         load_seconds: float | None = None,
     ) -> None:
         now = local_now_iso()
@@ -324,6 +342,7 @@ class LocalLLMBenchmarkStore:
                     error = NULL,
                     vram_used_mib = COALESCE(?, vram_used_mib),
                     vram_delta_mib = COALESCE(?, vram_delta_mib),
+                    gpu_util_percent = COALESCE(?, gpu_util_percent),
                     load_seconds = COALESCE(?, load_seconds)
                 WHERE record_id = ? AND model_id = ?
                 """,
@@ -339,6 +358,7 @@ class LocalLLMBenchmarkStore:
                     output_summary["confidence"],
                     vram_used_mib,
                     vram_delta_mib,
+                    gpu_util_percent,
                     load_seconds,
                     str(record_id or "").strip(),
                     str(model_id or "").strip(),
@@ -395,6 +415,7 @@ class LocalLLMBenchmarkStore:
             "error": row["error"],
             "vram_used_mib": row["vram_used_mib"],
             "vram_delta_mib": row["vram_delta_mib"],
+            "gpu_util_percent": row["gpu_util_percent"],
             "load_seconds": row["load_seconds"],
         }
 

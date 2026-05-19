@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { CardHeader, HealthIndicator, StageBadge } from "../../components/uiPrimitives";
 import { OperationalShell } from "./OperationalShell";
 import { NodeHealthStrip } from "./NodeHealthStrip";
@@ -82,37 +84,154 @@ function formatMetricValue(value, suffix = "") {
   return `${numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
 }
 
-function LocalLLMBenchmarkTable({ summary }) {
+function parseOutputPayload(outputText) {
+  try {
+    const payload = JSON.parse(String(outputText || ""));
+    return payload && typeof payload === "object" ? payload : {};
+  } catch {
+    return {};
+  }
+}
+
+function labelSummary({ label, confidence, outputText }) {
+  const payload = parseOutputPayload(outputText);
+  const labelValue = label || payload.label || "none";
+  const score = confidence ?? payload.confidence ?? payload.score;
+  return `${labelValue}${score === null || score === undefined || score === "" ? "" : ` (${formatMetricValue(score)})`}`;
+}
+
+function reasoningText(result) {
+  const payload = parseOutputPayload(result?.output_text);
+  return payload.rationale || payload.reasoning || payload.reason || payload.explanation || result?.output_text || "none";
+}
+
+function LocalModelCell({ result, modelId }) {
+  if (!result) {
+    return (
+      <div className="benchmark-model-cell">
+        <code>{modelId}</code>
+        <StageBadge value="pending" />
+      </div>
+    );
+  }
+  return (
+    <div className="benchmark-model-cell">
+      <code>{result.model_id || modelId}</code>
+      <StageBadge value={result.status || "unknown"} />
+      <span>{labelSummary({ label: result.label, confidence: result.confidence, outputText: result.output_text })}</span>
+      <span className="muted tiny">Tokens {formatMetricValue(result.total_tokens)}</span>
+      <span className="muted tiny">VRAM {formatMetricValue(result.vram_used_mib ?? result.vram_delta_mib, " MiB")}</span>
+      <span className="muted tiny">GPU {formatMetricValue(result.gpu_util_percent, "%")}</span>
+      {result.error ? <span className="error tiny">{result.error}</span> : null}
+    </div>
+  );
+}
+
+function BenchmarkDetailModal({ comparison, modelIds, onClose }) {
+  if (!comparison) {
+    return null;
+  }
+  const localResults = Array.isArray(comparison.local_results) ? comparison.local_results : [];
+  const resultsByModel = Object.fromEntries(localResults.map((result) => [result.model_id, result]));
+  return (
+    <section className="modal-overlay pricing-modal-overlay" role="dialog" aria-modal="true" aria-label="Benchmark detail">
+      <article className="card modal-card benchmark-detail-modal">
+        <CardHeader title="Benchmark Detail" subtitle={comparison.prompt_id || comparison.task_family || comparison.record_id} />
+        <div className="state-grid">
+          <span>Record</span>
+          <code>{comparison.record_id}</code>
+          <span>Prompt</span>
+          <code>{comparison.prompt_id || "unattributed"}</code>
+          <span>Created</span>
+          <code>{comparison.created_at || "unknown"}</code>
+        </div>
+        <div className="modal-capability-data">
+          <h3>OpenAI</h3>
+          <div className="state-grid">
+            <span>Model</span>
+            <code>{comparison.openai?.model_id || "openai"}</code>
+            <span>Label</span>
+            <code>{labelSummary({ label: comparison.openai?.label, confidence: comparison.openai?.confidence, outputText: comparison.openai?.output_text })}</code>
+            <span>Tokens</span>
+            <code>{formatMetricValue(comparison.openai?.usage?.total_tokens)}</code>
+            <span>Latency</span>
+            <code>{formatMetricValue(comparison.openai?.latency_ms, " ms")}</code>
+            <span>Reasoning</span>
+            <code>{reasoningText(comparison.openai)}</code>
+          </div>
+        </div>
+        <div className="modal-capability-data">
+          <h3>Local LLMs</h3>
+          {modelIds.map((modelId) => {
+            const result = resultsByModel[modelId];
+            return (
+              <div className="benchmark-detail-block" key={modelId}>
+                <strong>{modelId}</strong>
+                {result ? (
+                  <div className="state-grid compact-grid">
+                    <span>Status</span>
+                    <StageBadge value={result.status || "unknown"} />
+                    <span>Label</span>
+                    <code>{labelSummary({ label: result.label, confidence: result.confidence, outputText: result.output_text })}</code>
+                    <span>Tokens</span>
+                    <code>{formatMetricValue(result.total_tokens)}</code>
+                    <span>Latency</span>
+                    <code>{formatMetricValue(result.latency_ms, " ms")}</code>
+                    <span>VRAM</span>
+                    <code>{formatMetricValue(result.vram_used_mib ?? result.vram_delta_mib, " MiB")}</code>
+                    <span>GPU Util</span>
+                    <code>{formatMetricValue(result.gpu_util_percent, "%")}</code>
+                    <span>Reasoning</span>
+                    <code>{reasoningText(result)}</code>
+                  </div>
+                ) : (
+                  <p className="muted tiny">Pending replay.</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="modal-capability-data">
+          <h3>Prompt Input</h3>
+          <pre className="benchmark-raw-block">{comparison.input_snippet || "none"}</pre>
+        </div>
+        <div className="row">
+          <button className="btn btn-primary" type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false }) {
+  const [selectedComparison, setSelectedComparison] = useState(null);
   const comparisons = Array.isArray(summary?.comparisons) ? summary.comparisons : [];
-  const rows = comparisons.flatMap((comparison) => {
-    const localResults = Array.isArray(comparison?.local_results) ? comparison.local_results : [];
-    const base = {
-      recordId: comparison?.record_id,
-      prompt: comparison?.prompt_id || comparison?.task_family || "unattributed",
-      openaiModel: comparison?.openai?.model_id || "openai",
-      openaiLabel: comparison?.openai?.label || "none",
-      openaiTokens: comparison?.openai?.usage?.total_tokens,
-      openaiLatency: comparison?.openai?.latency_ms,
-      snippet: comparison?.input_snippet || "",
-    };
-    if (!localResults.length) {
-      return [{ ...base, localModel: "pending", status: "pending" }];
-    }
-    return localResults.map((result) => ({
-      ...base,
-      localModel: result?.model_id || "local",
-      status: result?.status || "unknown",
-      localLabel: result?.label || "none",
-      localTokens: result?.total_tokens,
-      localLatency: result?.latency_ms,
-      vram: result?.vram_delta_mib ?? result?.vram_used_mib,
-      error: result?.error,
-    }));
-  });
+  const configuredModels = Array.isArray(summary?.rotation?.models)
+    ? summary.rotation.models.map((model) => model?.id).filter(Boolean)
+    : [];
+  const discoveredModels = comparisons.flatMap((comparison) =>
+    Array.isArray(comparison?.local_results) ? comparison.local_results.map((result) => result?.model_id).filter(Boolean) : []
+  );
+  const modelIds = Array.from(new Set([...configuredModels, ...discoveredModels])).slice(0, 4);
+  const currentModelId = summary?.rotation?.current_model_id || "unknown";
 
   return (
-    <article className="card operational-card-full-span">
+    <>
+      <article className="card operational-card-full-span">
       <CardHeader title="Local LLM Benchmarks" subtitle="OpenAI calls replayed against the local model rotation." />
+      <div className="benchmark-toolbar">
+        <div className="state-grid compact-grid">
+          <span>Current Model</span>
+          <code>{currentModelId}</code>
+          <span>Last Switch</span>
+          <code>{summary?.rotation?.updated_at || "none"}</code>
+        </div>
+        <button className="btn btn-primary" type="button" onClick={onCycleModel} disabled={!onCycleModel || cyclingModel}>
+          {cyclingModel ? "Cycling..." : "Cycle Model"}
+        </button>
+      </div>
       <div className="client-usage-summary-grid">
         <div className="client-usage-metric-block">
           <strong>{formatMetricValue(summary?.status_counts?.pending || 0)}</strong>
@@ -133,53 +252,52 @@ function LocalLLMBenchmarkTable({ summary }) {
             <thead>
               <tr>
                 <th>Prompt</th>
-                <th>OpenAI</th>
-                <th>Local Model</th>
-                <th>Status</th>
-                <th>Label</th>
-                <th>Tokens</th>
-                <th>Latency</th>
-                <th>VRAM</th>
+                <th>OpenAI Model</th>
+                {modelIds.map((modelId) => (
+                  <th key={modelId}>Local LLM {modelIds.indexOf(modelId) + 1}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {rows.length ? (
-                rows.map((row) => (
-                  <tr key={`${row.recordId}-${row.localModel}`}>
+              {comparisons.length ? (
+                comparisons.map((comparison) => {
+                  const resultsByModel = Object.fromEntries(
+                    (Array.isArray(comparison.local_results) ? comparison.local_results : []).map((result) => [result.model_id, result])
+                  );
+                  return (
+                  <tr
+                    className="benchmark-clickable-row"
+                    key={comparison.record_id}
+                    onClick={() => setSelectedComparison(comparison)}
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        setSelectedComparison(comparison);
+                      }
+                    }}
+                  >
                     <td>
-                      <code>{row.prompt}</code>
-                      {row.snippet ? <span className="muted tiny benchmark-snippet">{row.snippet}</span> : null}
+                      <code>{comparison.prompt_id || comparison.task_family || "unattributed"}</code>
+                      {comparison.input_snippet ? <span className="muted tiny benchmark-snippet">{comparison.input_snippet}</span> : null}
                     </td>
                     <td>
-                      <code>{row.openaiModel}</code>
+                      <div className="benchmark-model-cell">
+                        <code>{comparison.openai?.model_id || "openai"}</code>
+                        <span>{labelSummary({ label: comparison.openai?.label, confidence: comparison.openai?.confidence, outputText: comparison.openai?.output_text })}</span>
+                        <span className="muted tiny">Tokens {formatMetricValue(comparison.openai?.usage?.total_tokens)}</span>
+                      </div>
                     </td>
-                    <td>
-                      <code>{row.localModel}</code>
-                    </td>
-                    <td>
-                      <StageBadge value={row.status} />
-                      {row.error ? <span className="error tiny benchmark-snippet">{row.error}</span> : null}
-                    </td>
-                    <td>
-                      <code>{row.openaiLabel}</code>
-                      <span className="muted tiny benchmark-snippet">{row.localLabel || "pending"}</span>
-                    </td>
-                    <td>
-                      <code>{formatMetricValue(row.openaiTokens)}</code>
-                      <span className="muted tiny benchmark-snippet">{formatMetricValue(row.localTokens)}</span>
-                    </td>
-                    <td>
-                      <code>{formatMetricValue(row.openaiLatency, " ms")}</code>
-                      <span className="muted tiny benchmark-snippet">{formatMetricValue(row.localLatency, " ms")}</span>
-                    </td>
-                    <td>
-                      <code>{formatMetricValue(row.vram, " MiB")}</code>
-                    </td>
+                    {modelIds.map((modelId) => (
+                      <td key={`${comparison.record_id}-${modelId}`}>
+                        <LocalModelCell modelId={modelId} result={resultsByModel[modelId]} />
+                      </td>
+                    ))}
                   </tr>
-                ))
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="8" className="muted">
+                  <td colSpan={2 + Math.max(modelIds.length, 1)} className="muted">
                     No OpenAI benchmark records have been captured yet.
                   </td>
                 </tr>
@@ -188,7 +306,13 @@ function LocalLLMBenchmarkTable({ summary }) {
           </table>
         </div>
       </div>
-    </article>
+      </article>
+      <BenchmarkDetailModal
+        comparison={selectedComparison}
+        modelIds={modelIds}
+        onClose={() => setSelectedComparison(null)}
+      />
+    </>
   );
 }
 
@@ -209,6 +333,8 @@ export function OperationalDashboard({
   clientCostItems = [],
   clientUsageMonth = "",
   localLlmBenchmarkSummary = null,
+  onCycleLocalLlmModel,
+  cyclingLocalLlmModel = false,
   governanceStatus = null,
   scheduledTasksProps = null,
   onboardingSteps = [],
@@ -323,7 +449,11 @@ export function OperationalDashboard({
         ) : null}
 
         {currentSection === "benchmarks" ? (
-          <LocalLLMBenchmarkTable summary={localLlmBenchmarkSummary} />
+          <LocalLLMBenchmarkTable
+            summary={localLlmBenchmarkSummary}
+            onCycleModel={onCycleLocalLlmModel}
+            cyclingModel={cyclingLocalLlmModel}
+          />
         ) : null}
 
         {currentSection === "scheduled" ? (

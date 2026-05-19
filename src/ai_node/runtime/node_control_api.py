@@ -929,7 +929,20 @@ class NodeControlState:
     def local_llm_benchmark_comparison_payload(self) -> dict:
         if self._local_llm_benchmark_store is None or not hasattr(self._local_llm_benchmark_store, "summary_payload"):
             return {"configured": False, "comparisons": [], "status_counts": {}}
-        return self._local_llm_benchmark_store.summary_payload()
+        payload = self._local_llm_benchmark_store.summary_payload()
+        if self._local_llm_benchmark_runner is not None and hasattr(self._local_llm_benchmark_runner, "status_payload"):
+            payload["rotation"] = self._local_llm_benchmark_runner.status_payload()
+        return payload
+
+    async def cycle_local_llm_benchmark_model(self) -> dict:
+        if self._local_llm_benchmark_runner is None or not hasattr(self._local_llm_benchmark_runner, "run_once"):
+            raise ValueError("local_llm_benchmark_runner_not_configured")
+        result = await self._local_llm_benchmark_runner.run_once()
+        return {
+            "status": "ok",
+            "result": result,
+            "benchmark": self.local_llm_benchmark_comparison_payload(),
+        }
 
     def _attach_client_grants(self, *, payload: dict) -> dict:
         clients = list(payload.get("clients") or []) if isinstance(payload, dict) else []
@@ -3318,6 +3331,13 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     @app.get("/api/benchmarks/local-llm/comparisons")
     def get_local_llm_benchmark_comparisons():
         return state.local_llm_benchmark_comparison_payload()
+
+    @app.post("/api/benchmarks/local-llm/cycle")
+    async def post_local_llm_benchmark_cycle():
+        try:
+            return await state.cycle_local_llm_benchmark_model()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/budgets/declare")
     async def post_budget_declare(payload: BudgetDeclarationRequest):

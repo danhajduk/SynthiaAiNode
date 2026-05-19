@@ -37,11 +37,22 @@ class LocalLLMBenchmarkStoreTests(unittest.TestCase):
                 ),
                 model_ids=["qwen3-8b-q4_k_m", "gemma-3-12b-it-q4_k_m"],
             )
+            store.record_model_result(
+                record_id=record_id,
+                model_id="qwen3-8b-q4_k_m",
+                response=UnifiedExecutionResponse(
+                    provider_id="local",
+                    model_id="qwen3-8b-q4_k_m",
+                    output_text='{"label":"action_required","confidence":0.7}',
+                ),
+                vram_used_mib=5456,
+                gpu_util_percent=42,
+            )
 
             payload = store.summary_payload()
 
             self.assertTrue(record_id.startswith("openai-"))
-            self.assertEqual(payload["status_counts"], {"pending": 2})
+            self.assertEqual(payload["status_counts"], {"completed": 1, "pending": 1})
             self.assertEqual(len(payload["comparisons"]), 1)
             comparison = payload["comparisons"][0]
             self.assertEqual(comparison["prompt_id"], "prompt.email.classifier")
@@ -51,6 +62,9 @@ class LocalLLMBenchmarkStoreTests(unittest.TestCase):
                 [item["model_id"] for item in comparison["local_results"]],
                 ["gemma-3-12b-it-q4_k_m", "qwen3-8b-q4_k_m"],
             )
+            completed = [item for item in comparison["local_results"] if item["model_id"] == "qwen3-8b-q4_k_m"][0]
+            self.assertEqual(completed["vram_used_mib"], 5456)
+            self.assertEqual(completed["gpu_util_percent"], 42)
 
     def test_ignores_non_openai_execution(self):
         with tempfile.TemporaryDirectory() as tmp:

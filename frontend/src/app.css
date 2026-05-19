@@ -622,11 +622,37 @@
 }
 
 .local-llm-benchmark-table {
-  min-width: 980px;
+  min-width: 1180px;
 }
 
 .local-llm-benchmark-table td {
   vertical-align: top;
+}
+
+.benchmark-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.benchmark-clickable-row {
+  cursor: pointer;
+}
+
+.benchmark-clickable-row:hover {
+  background: hsl(var(--sx-text) / 0.035);
+}
+
+.benchmark-model-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.benchmark-model-cell code {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .benchmark-snippet {
@@ -634,6 +660,33 @@
   margin-top: 4px;
   max-width: 260px;
   white-space: normal;
+}
+
+.benchmark-detail-modal {
+  width: min(980px, 96vw);
+}
+
+.benchmark-detail-block {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid hsl(var(--sx-border) / 0.65);
+}
+
+.benchmark-detail-block:last-child {
+  border-bottom: none;
+}
+
+.benchmark-raw-block {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid hsl(var(--sx-border) / 0.75);
+  border-radius: var(--sx-radius-md);
+  background: hsl(var(--sx-panel));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .client-grant-summary-item strong,

@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import Callable
 
 from ai_node.persistence.local_llm_benchmark_store import LocalLLMBenchmarkStore
@@ -34,10 +35,13 @@ class LocalLLMBenchmarkWorker:
             record_id = str(record.get("record_id") or "").strip()
             try:
                 response = await self._execute_record(record=record, model_id=normalized_model_id)
+                gpu_snapshot = await self._gpu_snapshot()
                 self._store.record_model_result(
                     record_id=record_id,
                     model_id=normalized_model_id,
                     response=response,
+                    vram_used_mib=gpu_snapshot.get("llama_vram_mib"),
+                    gpu_util_percent=gpu_snapshot.get("gpu_util_percent"),
                 )
                 completed += 1
             except Exception as exc:
@@ -89,3 +93,47 @@ class LocalLLMBenchmarkWorker:
             base_url=os.environ.get("SYNTHIA_PROVIDER_LOCAL_BASE_URL", "http://127.0.0.1:8011/v1"),
             timeout_seconds=float(os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_TIMEOUT_SECONDS", "120")),
         )
+
+    @staticmethod
+    async def _gpu_snapshot() -> dict:
+        try:
+            gpu_process = await asyncio.create_subprocess_exec(
+                "nvidia-smi",
+                "--query-gpu=utilization.gpu,memory.used",
+                "--format=csv,noheader,nounits",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            gpu_stdout, _ = await gpu_process.communicate()
+            apps_process = await asyncio.create_subprocess_exec(
+                "nvidia-smi",
+                "--query-compute-apps=pid,process_name,used_memory",
+                "--format=csv,noheader,nounits",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            apps_stdout, _ = await apps_process.communicate()
+        except Exception:
+            return {}
+        snapshot: dict[str, float] = {}
+        first_gpu_line = gpu_stdout.decode("utf-8", errors="replace").splitlines()[0:1]
+        if first_gpu_line:
+            parts = [part.strip() for part in first_gpu_line[0].split(",")]
+            if len(parts) >= 2:
+                try:
+                    snapshot["gpu_util_percent"] = float(parts[0])
+                    snapshot["gpu_memory_used_mib"] = float(parts[1])
+                except ValueError:
+                    pass
+        llama_vram = 0.0
+        for line in apps_stdout.decode("utf-8", errors="replace").splitlines():
+            parts = [part.strip() for part in line.split(",")]
+            if len(parts) < 3 or "llama" not in parts[1].lower():
+                continue
+            try:
+                llama_vram += float(parts[2])
+            except ValueError:
+                continue
+        if llama_vram > 0:
+            snapshot["llama_vram_mib"] = llama_vram
+        return snapshot

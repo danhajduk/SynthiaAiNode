@@ -61,9 +61,12 @@ class LocalLLMBenchmarkRotationRunnerTests(unittest.IsolatedAsyncioTestCase):
 
             first = await runner.run_once()
             second = await runner.run_once()
+            status = runner.status_payload()
 
             self.assertEqual(first["model_id"], "qwen3-8b-q4_k_m")
             self.assertEqual(second["model_id"], "gemma-3-12b-it-q4_k_m")
+            self.assertEqual(status["current_model_id"], "gemma-3-12b-it-q4_k_m")
+            self.assertEqual([item["id"] for item in status["models"]], ["qwen3-8b-q4_k_m", "gemma-3-12b-it-q4_k_m"])
             self.assertEqual(worker.calls, [{"model_id": "qwen3-8b-q4_k_m", "limit": 7}, {"model_id": "gemma-3-12b-it-q4_k_m", "limit": 7}])
             self.assertEqual(commands[0]["command"], ["scripts/llamacpp-control.sh", "ready"])
             self.assertEqual(commands[0]["env"]["LLAMACPP_MODEL_HF"], "Qwen/Qwen3-8B-GGUF:Q4_K_M")

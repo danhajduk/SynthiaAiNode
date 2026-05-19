@@ -149,6 +149,7 @@ export default function App() {
   const [capabilityDiagnostics, setCapabilityDiagnostics] = useState(null);
   const [clientUsageSummary, setClientUsageSummary] = useState({ currentMonth: "", clients: [] });
   const [localLlmBenchmarkSummary, setLocalLlmBenchmarkSummary] = useState({ comparisons: [], status_counts: {} });
+  const [cyclingLocalLlmModel, setCyclingLocalLlmModel] = useState(false);
   const [runningAdminAction, setRunningAdminAction] = useState("");
   const [adminActionState, setAdminActionState] = useState("");
   const [uiState, setUiState] = useState(() =>
@@ -1099,6 +1100,27 @@ export default function App() {
     }
   }
 
+  async function onCycleLocalLlmModel() {
+    if (cyclingLocalLlmModel) {
+      return;
+    }
+    setCyclingLocalLlmModel(true);
+    setError("");
+    try {
+      const result = await apiPost("/api/benchmarks/local-llm/cycle", {});
+      if (result?.benchmark) {
+        setLocalLlmBenchmarkSummary(result.benchmark);
+      } else {
+        await loadStatus();
+      }
+    } catch (err) {
+      const message = String(err?.message || err).replace(/^request failed \(\d+\):\s*/, "");
+      setError(message);
+    } finally {
+      setCyclingLocalLlmModel(false);
+    }
+  }
+
   const setupSummaryItems = [
     { label: "Lifecycle", value: <StatusBadge value={uiState.lifecycle.current} /> },
     { label: "Trust", value: <StatusBadge value={uiState.lifecycle.trustStatus} /> },
@@ -1665,6 +1687,8 @@ export default function App() {
     clientCostItems,
     clientUsageMonth,
     localLlmBenchmarkSummary,
+    onCycleLocalLlmModel,
+    cyclingLocalLlmModel,
     governanceStatus: governanceStatusPayload,
     scheduledTasksProps: {
       scheduler: capabilityDiagnostics?.internal_scheduler || null,

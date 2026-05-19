@@ -53,6 +53,18 @@ class LocalLLMBenchmarkRotationRunner:
         self._save_state(model_id=str(model["id"]), result=result)
         return result
 
+    def status_payload(self) -> dict:
+        state = self._load_state()
+        models = self._load_models()
+        current_model_id = str(state.get("current_model_id") or "").strip() or None
+        return {
+            "configured": True,
+            "current_model_id": current_model_id,
+            "models": models,
+            "updated_at": state.get("updated_at"),
+            "last_result": state.get("last_result") if isinstance(state.get("last_result"), dict) else None,
+        }
+
     def _next_model(self) -> dict:
         models = self._load_models()
         state = self._load_state()

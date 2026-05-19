@@ -118,6 +118,17 @@ class NodeControlFastApiTests(unittest.TestCase):
                 "comparisons": [{"record_id": "openai-test", "local_results": []}],
             }
 
+    class _FakeLocalLLMBenchmarkRunner:
+        def status_payload(self):
+            return {
+                "configured": True,
+                "current_model_id": "qwen3-8b-q4_k_m",
+                "models": [{"id": "qwen3-8b-q4_k_m"}, {"id": "qwen3-14b-q4_k_m"}],
+            }
+
+        async def run_once(self):
+            return {"model_id": "qwen3-14b-q4_k_m", "worker_result": {"processed": 0}}
+
     class _FakeCapabilityRunner:
         def __init__(self):
             self.workflow_notifications = []
@@ -493,6 +504,7 @@ class NodeControlFastApiTests(unittest.TestCase):
                 config_path=str(Path(tmp) / "bootstrap_config.json"),
                 logger=logging.getLogger("node-control-fastapi-test"),
                 local_llm_benchmark_store=self._FakeLocalLLMBenchmarkStore(),
+                local_llm_benchmark_runner=self._FakeLocalLLMBenchmarkRunner(),
             )
             app = create_node_control_app(state=state, logger=logging.getLogger("node-control-fastapi-test"))
             client = TestClient(app)
@@ -503,6 +515,12 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertTrue(response.json()["configured"])
             self.assertEqual(response.json()["status_counts"]["pending"], 1)
             self.assertEqual(response.json()["comparisons"][0]["record_id"], "openai-test")
+            self.assertEqual(response.json()["rotation"]["current_model_id"], "qwen3-8b-q4_k_m")
+
+            cycle_response = client.post("/api/benchmarks/local-llm/cycle")
+
+            self.assertEqual(cycle_response.status_code, 200)
+            self.assertEqual(cycle_response.json()["result"]["model_id"], "qwen3-14b-q4_k_m")
 
     def test_status_and_onboarding_endpoints(self):
         with tempfile.TemporaryDirectory() as tmp:

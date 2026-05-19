@@ -84,6 +84,16 @@ function buildOperationalProps(overrides = {}) {
     clientCostItems: [],
     clientUsageMonth: "2026-04",
     localLlmBenchmarkSummary: {
+      rotation: {
+        current_model_id: "qwen3-8b-q4_k_m",
+        updated_at: "2026-05-19T21:00:00Z",
+        models: [
+          { id: "qwen3-8b-q4_k_m" },
+          { id: "qwen3-14b-q4_k_m" },
+          { id: "gemma-3-12b-it-q4_k_m" },
+          { id: "mistral-nemo-instruct-2407-q4_k_m" },
+        ],
+      },
       status_counts: { pending: 1, completed: 1, failed: 0 },
       comparisons: [
         {
@@ -104,7 +114,8 @@ function buildOperationalProps(overrides = {}) {
               label: "system",
               total_tokens: 132,
               latency_ms: 3200,
-              vram_delta_mib: 5456,
+              vram_used_mib: 5456,
+              gpu_util_percent: 42,
             },
           ],
         },
@@ -274,6 +285,8 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("gpt-5.4-nano");
     expect(markup).toContain("qwen3-8b-q4_k_m");
     expect(markup).toContain("5,456 MiB");
+    expect(markup).toContain("42%");
+    expect(markup).toContain("Cycle Model");
   });
 
   it("shows friendly task kind and schedule names and sorts the legend by duration", () => {
