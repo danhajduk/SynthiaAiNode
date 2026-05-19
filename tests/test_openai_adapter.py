@@ -351,16 +351,24 @@ class OpenAIAdapterExecutionTests(unittest.IsolatedAsyncioTestCase):
         def _client_factory(*args, **kwargs):
             return _FakeAsyncClient(capture=capture, payload=response_payload, **kwargs)
 
-        adapter = OpenAIProviderAdapter(api_key=TEST_OPENAI_CREDENTIAL)
-        request = UnifiedExecutionRequest(
-            task_family="task.image_generation",
-            prompt="Make a clean product image",
-            requested_model="gpt-image-1-mini",
-            metadata={"size": "1024x1024", "quality": "medium"},
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = OpenAIProviderAdapter(
+                api_key=TEST_OPENAI_CREDENTIAL,
+                pricing_catalog_service=OpenAIPricingCatalogService(
+                    logger=None,
+                    catalog_path="providers/openai/provider_model_pricing.json",
+                    manual_config_path=str(Path(tmp) / "openai-pricing.yaml"),
+                ),
+            )
+            request = UnifiedExecutionRequest(
+                task_family="task.image_generation",
+                prompt="Make a clean product image",
+                requested_model="gpt-image-1-mini",
+                metadata={"size": "1024x1024", "quality": "medium"},
+            )
 
-        with patch("ai_node.providers.adapters.openai_adapter.httpx.AsyncClient", side_effect=_client_factory):
-            response = await adapter.execute_prompt(request)
+            with patch("ai_node.providers.adapters.openai_adapter.httpx.AsyncClient", side_effect=_client_factory):
+                response = await adapter.execute_prompt(request)
 
         self.assertEqual(capture["url"], "https://api.openai.com/v1/images/generations")
         self.assertEqual(capture["json"]["model"], "gpt-image-1-mini")
@@ -372,6 +380,8 @@ class OpenAIAdapterExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(output["images"][0]["b64_json"], "aW1hZ2U=")
         self.assertEqual(response.model_id, "gpt-image-1-mini")
         self.assertEqual(response.usage.prompt_tokens, 12)
+        self.assertIsNotNone(response.estimated_cost)
+        self.assertAlmostEqual(response.estimated_cost, 0.000046, places=10)
 
     async def test_debug_image_generation_overwrites_latest_prompt_file(self):
         capture: dict = {}

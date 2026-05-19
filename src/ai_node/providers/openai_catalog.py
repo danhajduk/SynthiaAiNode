@@ -388,15 +388,21 @@ def _enforce_family_pricing_rules(
         normalized_price = normalized_price if normalized_price is not None else (output_price if output_price is not None else input_price)
         return basis, input_price, cached_input_price, output_price, normalized_price, normalized_unit, normalized_notes
     if family == "image_generation":
-        basis = "per_image"
-        normalized_unit = "medium_1024x1536_per_image"
+        if basis != "per_1m_tokens":
+            basis = "per_image"
+        normalized_unit = "per_1m_tokens" if basis == "per_1m_tokens" else "medium_1024x1536_per_image"
         input_price, cached_input_price, output_price = _sanitize_non_applicable_price_fields(
             basis=basis,
             input_price=input_price,
             cached_input_price=cached_input_price,
             output_price=output_price,
         )
-        normalized_price = normalized_price if normalized_price is not None else (output_price if output_price is not None else input_price)
+        normalized_price = _compute_normalized_price(
+            basis=basis,
+            input_price=input_price,
+            output_price=output_price,
+            normalized_price=normalized_price,
+        )
         return basis, input_price, cached_input_price, output_price, normalized_price, normalized_unit, normalized_notes
     if family == "video_generation":
         basis = "per_second"
@@ -887,7 +893,7 @@ def _validate_family_extracted_entries(*, family: str, entries: list[OpenAIPrici
             if entry.normalized_price is None:
                 return False, f"family_validation_normalized_missing:{family}:{entry.model_id}"
         elif family == "image_generation":
-            if entry.pricing_basis != "per_image":
+            if entry.pricing_basis not in {"per_image", "per_1m_tokens"}:
                 return False, f"family_validation_basis_invalid:{family}:{entry.model_id}"
             if entry.normalized_price is None:
                 return False, f"family_validation_normalized_missing:{family}:{entry.model_id}"
@@ -1064,7 +1070,11 @@ def _build_manual_pricing_yaml_models(
         yaml_override = existing_yaml_overrides.get(model_id) or {}
         snapshot_entry = snapshot_entries.get(model_id)
         json_override = json_overrides.get(model_id) or {}
-        if yaml_override:
+        yaml_has_prices = any(
+            yaml_override.get(field_name) is not None
+            for field_name in ("input_price", "cached_input_price", "output_price")
+        )
+        if yaml_has_prices:
             input_price = yaml_override.get("input_price")
             cached_input_price = yaml_override.get("cached_input_price")
             output_price = yaml_override.get("output_price")
@@ -2101,7 +2111,11 @@ class OpenAIPricingCatalogService:
         input_price = input_price_per_1m if input_price_per_1m is not None else (existing.input_price if existing is not None else None)
         output_price = output_price_per_1m if output_price_per_1m is not None else (existing.output_price if existing is not None else None)
         basis = existing.pricing_basis if existing is not None else _default_pricing_basis_for_family(family)
+        if family == "image_generation":
+            basis = "per_1m_tokens"
         normalized_unit = existing.normalized_unit if existing is not None else _default_normalized_unit(basis)
+        if family == "image_generation":
+            normalized_unit = "per_1m_tokens"
         normalized_price = (
             None
             if input_price_per_1m is not None or output_price_per_1m is not None
@@ -2423,6 +2437,8 @@ def _manual_pricing_yaml_entry(model_id: str, *, manual_config_path: str) -> Ope
         return None
     family = _normalize_family(None, model_id=normalized_model_id)
     basis = _default_pricing_basis_for_family(family)
+    if family == "image_generation":
+        basis = "per_1m_tokens"
     normalized_unit = _default_normalized_unit(basis)
     if basis == "per_1m_tokens":
         normalized_price = _compute_normalized_price(

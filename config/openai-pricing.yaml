@@ -36,13 +36,13 @@ models:
     Cached input: null
     Output: null
   gpt-image-1-mini:
-    Input: null
+    Input: 2.5
     Cached input: null
-    Output: null
+    Output: 8
   gpt-image-1.5:
-    Input: null
-    Cached input: null
-    Output: null
+    Input: 8
+    Cached input: 0
+    Output: 32
   gpt-image-2:
     Input: null
     Cached input: null

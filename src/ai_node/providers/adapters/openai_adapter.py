@@ -280,7 +280,22 @@ class OpenAIProviderAdapter(ProviderAdapter):
             output["created"] = data.get("created")
         return json.dumps(output, sort_keys=True)
 
-    def _estimate_image_generation_cost(self, *, model_id: str, image_count: int) -> float | None:
+    def _estimate_image_generation_cost(
+        self,
+        *,
+        model_id: str,
+        image_count: int,
+        usage: UnifiedExecutionUsage | None = None,
+    ) -> float | None:
+        if usage is not None and (usage.prompt_tokens > 0 or usage.completion_tokens > 0 or usage.cached_input_tokens > 0):
+            token_cost = self.estimate_cost(
+                model_id=model_id,
+                prompt_tokens=usage.prompt_tokens,
+                completion_tokens=usage.completion_tokens,
+                cached_input_tokens=usage.cached_input_tokens,
+            )
+            if token_cost is not None:
+                return token_cost
         pricing = get_openai_model_pricing(model_id, pricing_service=self._pricing_catalog_service)
         if not isinstance(pricing, dict):
             return None
@@ -541,6 +556,7 @@ class OpenAIProviderAdapter(ProviderAdapter):
                 estimated_cost=self._estimate_image_generation_cost(
                     model_id=str(payload["model"]),
                     image_count=image_count,
+                    usage=usage,
                 ),
                 raw_provider_response_ref=(
                     f"openai:{data.get('id') or _iso_now()}"

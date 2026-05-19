@@ -372,8 +372,8 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
             extracted_at="2026-03-14T00:00:00Z",
         )
         by_id = {entry.model_id: entry for entry in entries}
-        self.assertEqual(by_id["gpt-image-1.5"].pricing_basis, "per_image")
-        self.assertEqual(by_id["gpt-image-1.5"].normalized_unit, "medium_1024x1536_per_image")
+        self.assertEqual(by_id["gpt-image-1.5"].pricing_basis, "per_1m_tokens")
+        self.assertEqual(by_id["gpt-image-1.5"].normalized_unit, "per_1m_tokens")
         self.assertEqual(by_id["gpt-image-1.5"].normalized_price, 0.19)
         self.assertEqual(by_id["omni-moderation-2024-09-26"].normalized_price, 0.0)
         self.assertIn("status:free", by_id["omni-moderation-2024-09-26"].notes)
@@ -859,7 +859,7 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(merged_models[0].pricing_input, 3.0)
             self.assertEqual(merged_models[0].pricing_output, 15.0)
 
-    async def test_manual_pricing_uses_image_generation_units_for_image_models(self):
+    async def test_manual_pricing_uses_token_units_for_image_models(self):
         with tempfile.TemporaryDirectory() as tmp:
             service = OpenAIPricingCatalogService(
                 logger=logging.getLogger("openai-pricing-test"),
@@ -875,11 +875,71 @@ class OpenAIPricingCatalogTests(unittest.IsolatedAsyncioTestCase):
             )
 
             pricing = get_openai_model_pricing("gpt-image-1-mini", pricing_service=service)
-            self.assertEqual(pricing["pricing_basis"], "per_image")
-            self.assertEqual(pricing["normalized_unit"], "medium_1024x1536_per_image")
+            self.assertEqual(pricing["pricing_basis"], "per_1m_tokens")
+            self.assertEqual(pricing["normalized_unit"], "per_1m_tokens")
             self.assertEqual(pricing["normalized_price"], 0.08)
             self.assertIsNone(pricing["input_per_1m_tokens"])
-            self.assertIsNone(pricing["output_per_1m_tokens"])
+            self.assertEqual(pricing["output_per_1m_tokens"], 0.08)
+
+    async def test_null_yaml_image_pricing_keeps_json_token_pricing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "provider_model_pricing.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": "2.0",
+                        "parser_version": "2.0",
+                        "source_urls": ["manual://test"],
+                        "source_url_used": "manual://test",
+                        "scraped_at": "2026-05-19T00:00:00Z",
+                        "refresh_state": "manual",
+                        "stale": False,
+                        "entries": [
+                            {
+                                "model_id": "gpt-image-1-mini",
+                                "family": "image_generation",
+                                "pricing_basis": "per_1m_tokens",
+                                "input_price": 2.5,
+                                "cached_input_price": 0.25,
+                                "output_price": 8.0,
+                                "normalized_price": 8.0,
+                                "normalized_unit": "per_1m_tokens",
+                                "source_url": "manual://test",
+                                "extracted_at": "2026-05-19T00:00:00Z",
+                                "extraction_status": "manual",
+                                "notes": [],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            Path(tmp, "openai-pricing.yaml").write_text(
+                "\n".join(
+                    [
+                        "version: 1",
+                        "models:",
+                        "  gpt-image-1-mini:",
+                        "    Input: null",
+                        "    Cached input: null",
+                        "    Output: null",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            service = OpenAIPricingCatalogService(
+                logger=logging.getLogger("openai-pricing-test"),
+                catalog_path=str(Path(tmp) / "provider_model_pricing.json"),
+                overrides_path=str(Path(tmp) / "provider_model_pricing_overrides.json"),
+                manual_config_path=str(Path(tmp) / "openai-pricing.yaml"),
+            )
+
+            pricing = get_openai_model_pricing("gpt-image-1-mini", pricing_service=service)
+
+            self.assertEqual(pricing["pricing_basis"], "per_1m_tokens")
+            self.assertEqual(pricing["input_per_1m_tokens"], 2.5)
+            self.assertEqual(pricing["cached_input_per_1m_tokens"], 0.25)
+            self.assertEqual(pricing["output_per_1m_tokens"], 8.0)
 
     async def test_builtin_fallback_pricing_for_current_gpt_54_models(self):
         with tempfile.TemporaryDirectory() as tmp:
