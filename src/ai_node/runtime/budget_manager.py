@@ -194,7 +194,6 @@ class BudgetManager:
         policy = state.get("budget_policy") if isinstance(state.get("budget_policy"), dict) else None
         grant_usage = state.get("grant_usage") if isinstance(state.get("grant_usage"), dict) else {}
         provider_budget_usage = state.get("provider_budget_usage") if isinstance(state.get("provider_budget_usage"), dict) else {}
-        runtime_spend_by_provider = self._provider_runtime_exact_spend_by_provider()
         grants = list(policy.get("grants") or []) if isinstance(policy, dict) else []
         active_reservations = 0
         for usage in grant_usage.values():
@@ -211,11 +210,9 @@ class BudgetManager:
             )
             used_cost_usd_exact = self._provider_budget_used_cost_usd_exact(
                 usage=usage,
-                runtime_spend_by_provider=runtime_spend_by_provider,
             )
             used_cost_cents = self._provider_budget_used_cost_cents(
                 usage=usage,
-                runtime_spend_by_provider=runtime_spend_by_provider,
             )
             reserved_cost_cents = _normalize_int(usage.get("reserved_cost_cents"), default=0)
             reservations = usage.get("reservations") if isinstance(usage, dict) else {}
@@ -661,10 +658,8 @@ class BudgetManager:
         usage = self._ensure_provider_budget_usage_entry(state=state, provider_id=provider_id, settings=settings)
         if reservation_id in usage["reservations"]:
             return {"allowed": False, "reason": "reservation_conflict"}
-        runtime_spend_by_provider = self._provider_runtime_exact_spend_by_provider()
         used_cost_usd_exact = self._provider_budget_used_cost_usd_exact(
             usage=usage,
-            runtime_spend_by_provider=runtime_spend_by_provider,
         )
         remaining_exact_cents = (
             _normalize_int(usage.get("budget_limit_cents"))
@@ -782,7 +777,6 @@ class BudgetManager:
         entry = self._provider_budget_notification_entry(state=state, usage_key=usage_key)
         used_ratio = self._provider_budget_used_cost_usd_exact(
             usage=usage,
-            runtime_spend_by_provider=self._provider_runtime_exact_spend_by_provider(),
         ) / (budget_limit_cents / 100.0)
         if used_ratio < 0.9 or entry.get("threshold_90_notified"):
             return
@@ -814,20 +808,15 @@ class BudgetManager:
             return float(estimated_cost)
         return max(int(fallback_cost_cents), 0) / 100.0
 
-    def _provider_budget_used_cost_usd_exact(self, *, usage: dict, runtime_spend_by_provider: dict[str, float]) -> float:
-        provider_id = _normalize_string(usage.get("provider_id"))
-        fallback = runtime_spend_by_provider.get(provider_id)
-        if isinstance(fallback, (int, float)) and float(fallback) >= 0:
-            return round(float(fallback), 10)
+    def _provider_budget_used_cost_usd_exact(self, *, usage: dict) -> float:
         exact = usage.get("used_cost_usd_exact")
         if isinstance(exact, (int, float)) and float(exact) > 0:
             return round(float(exact), 10)
         return round(_normalize_int(usage.get("used_cost_cents")) / 100.0, 10)
 
-    def _provider_budget_used_cost_cents(self, *, usage: dict, runtime_spend_by_provider: dict[str, float]) -> int:
+    def _provider_budget_used_cost_cents(self, *, usage: dict) -> int:
         used_cost_usd_exact = self._provider_budget_used_cost_usd_exact(
             usage=usage,
-            runtime_spend_by_provider=runtime_spend_by_provider,
         )
         if used_cost_usd_exact > 0:
             return max(math.ceil(used_cost_usd_exact * 100.0), 0)

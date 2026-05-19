@@ -422,7 +422,7 @@ class BudgetManagerTests(unittest.TestCase):
             self.assertEqual(payload["provider_budgets"][0]["used_cost_usd_exact"], 0.0)
             self.assertEqual(payload["provider_budgets"][0]["reserved_cost_cents"], 0)
 
-    def test_status_payload_falls_back_to_runtime_exact_spend_for_provider_budget(self):
+    def test_status_payload_uses_current_period_budget_ledger_without_runtime_spend(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = BudgetStateStore(path=str(Path(tmp) / "budget_state.json"), logger=logging.getLogger("budget-manager-test"))
             manager = BudgetManager(
@@ -454,10 +454,10 @@ class BudgetManagerTests(unittest.TestCase):
 
             payload = manager.status_payload()
 
-            self.assertAlmostEqual(payload["provider_budgets"][0]["used_cost_usd_exact"], 0.0028175, places=10)
-            self.assertAlmostEqual(payload["provider_budgets"][0]["remaining_cost_usd_exact"], 4.9971825, places=10)
+            self.assertAlmostEqual(payload["provider_budgets"][0]["used_cost_usd_exact"], 0.0, places=10)
+            self.assertAlmostEqual(payload["provider_budgets"][0]["remaining_cost_usd_exact"], 5.0, places=10)
 
-    def test_status_payload_prefers_runtime_exact_spend_over_stale_saved_usd(self):
+    def test_status_payload_prefers_period_ledger_over_lifetime_runtime_spend(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = BudgetStateStore(path=str(Path(tmp) / "budget_state.json"), logger=logging.getLogger("budget-manager-test"))
             state = store.load_or_create()
@@ -487,14 +487,9 @@ class BudgetManagerTests(unittest.TestCase):
                                 "provider_id": "openai",
                                 "models": [
                                     {
-                                        "pricing_input": 2.5,
-                                        "pricing_output": 15.0,
-                                        "usage_metrics": {"prompt_tokens": 69, "completion_tokens": 41},
-                                    },
-                                    {
-                                        "pricing_input": 0.2,
-                                        "pricing_output": 1.25,
-                                        "usage_metrics": {"prompt_tokens": 5575, "completion_tokens": 732},
+                                        "pricing_input": 0.0,
+                                        "pricing_output": 10.0,
+                                        "usage_metrics": {"prompt_tokens": 0, "completion_tokens": 875000},
                                     },
                                 ],
                             }
@@ -503,11 +498,12 @@ class BudgetManagerTests(unittest.TestCase):
                 ),
             )
 
-            payload = manager.status_payload()
+            with patch("ai_node.runtime.budget_manager._now", return_value=local_now().replace(month=4, day=2)):
+                payload = manager.status_payload()
 
-            self.assertAlmostEqual(payload["provider_budgets"][0]["used_cost_usd_exact"], 0.0028175, places=10)
-            self.assertEqual(payload["provider_budgets"][0]["used_cost_cents"], 1)
-            self.assertAlmostEqual(payload["provider_budgets"][0]["remaining_cost_usd_exact"], 4.9971825, places=10)
+            self.assertAlmostEqual(payload["provider_budgets"][0]["used_cost_usd_exact"], 0.16, places=10)
+            self.assertEqual(payload["provider_budgets"][0]["used_cost_cents"], 16)
+            self.assertAlmostEqual(payload["provider_budgets"][0]["remaining_cost_usd_exact"], 4.84, places=10)
 
     def test_provider_budget_can_deny_before_core_policy_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
