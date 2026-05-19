@@ -633,6 +633,51 @@ class BudgetManagerTests(unittest.TestCase):
             self.assertAlmostEqual(payload["provider_budgets"][0]["used_cost_usd_exact"], 0.00013015, places=10)
             self.assertEqual(payload["provider_budgets"][0]["used_cost_cents"], 1)
 
+    def test_finalize_provider_budget_releases_placeholder_without_actual_cost(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = BudgetStateStore(path=str(Path(tmp) / "budget_state.json"), logger=logging.getLogger("budget-manager-test"))
+            manager = BudgetManager(
+                store=store,
+                logger=logging.getLogger("budget-manager-test"),
+                provider_runtime_manager=_FakeRuntimeManager(
+                    provider_budget_limits={"openai": {"max_cost_cents": 500, "period": "monthly"}}
+                ),
+            )
+            request = TaskExecutionRequest.model_validate(
+                {
+                    "task_id": "task-provider-zero-cost-finalize",
+                    "task_family": "task.image_generation",
+                    "requested_by": "service.alpha",
+                    "service_id": "service.alpha",
+                    "requested_provider": "openai",
+                    "requested_model": "gpt-image-1-mini",
+                    "inputs": {"prompt": "weather"},
+                    "constraints": {},
+                    "trace_id": "trace-provider-zero-cost-finalize",
+                }
+            )
+
+            reserved = manager.reserve_execution(
+                task_id=request.task_id,
+                request=request,
+                provider_id="openai",
+                model_id="gpt-image-1-mini",
+                governance_bundle=None,
+            )
+            self.assertTrue(reserved.allowed)
+            self.assertEqual(reserved.reserved_cost_cents, 1)
+
+            manager.finalize_execution(
+                task_id=request.task_id,
+                metrics=type("Metrics", (), {"estimated_cost": None, "total_tokens": 0})(),
+                status="completed",
+            )
+
+            payload = manager.status_payload()
+            self.assertEqual(payload["provider_budgets"][0]["used_cost_cents"], 0)
+            self.assertEqual(payload["provider_budgets"][0]["reserved_cost_cents"], 0)
+            self.assertAlmostEqual(payload["provider_budgets"][0]["used_cost_usd_exact"], 0.0, places=10)
+
 
 if __name__ == "__main__":
     unittest.main()

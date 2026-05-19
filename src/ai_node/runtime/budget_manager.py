@@ -701,11 +701,11 @@ class BudgetManager:
                 continue
             reserved_cost_cents = _normalize_int(reservation.get("reserved_cost_cents"))
             usage["reserved_cost_cents"] = max(_normalize_int(usage.get("reserved_cost_cents")) - reserved_cost_cents, 0)
-            applied_cost = final_cost_cents if final_cost_cents is not None else reserved_cost_cents
+            applied_cost = final_cost_cents if final_cost_cents is not None else 0
             if status == "completed":
                 usage["used_cost_usd_exact"] = round(
                     _normalize_float(usage.get("used_cost_usd_exact"))
-                    + self._final_cost_usd_exact(metrics=metrics, fallback_cost_cents=applied_cost),
+                    + self._final_cost_usd_exact(metrics=metrics, fallback_cost_cents=0),
                     10,
                 )
                 usage["used_cost_cents"] = max(math.ceil(_normalize_float(usage.get("used_cost_usd_exact")) * 100.0), 0)
