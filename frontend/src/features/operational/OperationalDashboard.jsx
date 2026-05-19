@@ -84,6 +84,21 @@ function formatMetricValue(value, suffix = "") {
   return `${numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
 }
 
+const LOCAL_LLM_DISPLAY_NAMES = {
+  "qwen3-8b-q4_k_m": "Qwen 8B",
+  "qwen3-14b-q4_k_m": "Qwen 14B",
+  "gemma-3-12b-it-q4_k_m": "Gemma 12B",
+  "mistral-nemo-instruct-2407-q4_k_m": "Mistral",
+};
+
+function localLlmDisplayName(modelId) {
+  return LOCAL_LLM_DISPLAY_NAMES[String(modelId || "").trim()] || String(modelId || "local").trim() || "local";
+}
+
+function localLlmColumnTitle(modelId, index) {
+  return `Local LLM ${index + 1} = ${localLlmDisplayName(modelId)}`;
+}
+
 function parseOutputPayload(outputText) {
   try {
     const payload = JSON.parse(String(outputText || ""));
@@ -136,7 +151,8 @@ function LocalModelCell({ result, modelId }) {
   }
   return (
     <div className="benchmark-model-cell">
-      <code>{result.model_id || modelId}</code>
+      <code>{localLlmDisplayName(result.model_id || modelId)}</code>
+      <span className="muted tiny">{result.model_id || modelId}</span>
       <StageBadge value={result.status || "unknown"} />
       <span>{labelSummary({ label: result.label, confidence: result.confidence, outputText: result.output_text })}</span>
       <span className="muted tiny">Tokens {formatMetricValue(result.total_tokens)}</span>
@@ -225,7 +241,8 @@ function LocalLLMSummaryTable({ summaries }) {
                     <code>{summary.promptName}</code>
                   </td>
                   <td>
-                    <code>{summary.modelId}</code>
+                    <code>{localLlmDisplayName(summary.modelId)}</code>
+                    <span className="muted tiny benchmark-snippet">{summary.modelId}</span>
                   </td>
                   <td>{formatMetricValue(summary.completed)}</td>
                   <td>
@@ -294,7 +311,8 @@ function BenchmarkDetailModal({ comparison, modelIds, onClose }) {
             const result = resultsByModel[modelId];
             return (
               <div className="benchmark-detail-block" key={modelId}>
-                <strong>{modelId}</strong>
+                <strong>{localLlmDisplayName(modelId)}</strong>
+                <span className="muted tiny">{modelId}</span>
                 {result ? (
                   <div className="state-grid compact-grid">
                     <span>Status</span>
@@ -420,8 +438,8 @@ function LocalLLMBenchmarkTable({
               <tr>
                 <th>Prompt</th>
                 <th>OpenAI Model</th>
-                {modelIds.map((modelId) => (
-                  <th key={modelId}>Local LLM {modelIds.indexOf(modelId) + 1}</th>
+                {modelIds.map((modelId, index) => (
+                  <th key={modelId}>{localLlmColumnTitle(modelId, index)}</th>
                 ))}
               </tr>
             </thead>
