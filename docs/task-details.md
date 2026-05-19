@@ -486,10 +486,21 @@ Preserved scope:
   - normalized input snippet or redacted request payload
   - OpenAI model/output/label/confidence/tokens/latency/cost
   - per-local-model output/label/confidence/tokens/latency/status/error
+  - per-local-model VRAM used/delta and model load time so operators can weigh accuracy against GPU pressure
   - agreement/mismatch status
 - Add a UI table for comparing OpenAI vs local model behavior.
+- The UI table should include VRAM as a visible model-choice factor, alongside latency, tokens, confidence, and agreement.
 - Keep retention bounded, for example by count or age, so replay data does not grow indefinitely.
 - Avoid switching the local model while the local LLM is serving real production work; if that state cannot be detected yet, document and implement a conservative guard.
+
+Measured local runtime VRAM baseline on 2026-05-19:
+- Method: `nvidia-smi memory.used` delta from stopped llama.cpp baseline with `--n-gpu-layers 99`.
+- Baseline GPU memory before llama.cpp model load: 1,844 MiB used of 12,288 MiB.
+- `qwen3-8b-q4_k_m`, ctx 4096: 7,300 MiB total used, 5,456 MiB delta, load 11.667 s.
+- `qwen3-14b-q4_k_m`, ctx 4096: 11,072 MiB total used, 9,228 MiB delta, load 14.737 s.
+- `gemma-3-12b-it-q4_k_m`, ctx 4096: 11,114 MiB total used, 9,270 MiB delta, load 16.798 s.
+- `mistral-nemo-instruct-2407-q4_k_m`, ctx 8192: 10,272 MiB total used, 8,428 MiB delta, load 17.193 s.
+- Raw measurement artifact: `.run/local_llm_vram_measurements.json`.
 
 Task mapping:
 - Task 382: Persist OpenAI shadow benchmark records for local LLM comparison
