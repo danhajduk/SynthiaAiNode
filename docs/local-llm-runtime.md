@@ -29,6 +29,7 @@ scripts/llamacpp-control.sh stop
 The llama.cpp socket defaults to `/run/hexe/ai-node/llamacpp.sock`.
 The health wrapper socket defaults to `/run/hexe/ai-node/llamacpp-health.sock`.
 Downloaded model cache defaults to `runtime/cache/llamacpp` so Hugging Face downloads survive container recreation.
+The node service status resolves the llama.cpp container from `LLAMACPP_CONTAINER_NAME` (default `hexe-ai-node-llamacpp`) and reports its host PID, CPU percent, and memory percent under `services.local_llm`; supervisor registration and heartbeat payloads include the same service metadata.
 
 ## Model Download And Benchmarks
 

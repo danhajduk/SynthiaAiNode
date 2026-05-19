@@ -17,6 +17,10 @@ class UserSystemdServiceManager:
         self._local_llm_health_socket = str(
             os.environ.get("LLAMACPP_HEALTH_SOCKET") or "/run/hexe/ai-node/llamacpp-health.sock"
         ).strip()
+        self._local_llm_container_name = str(
+            os.environ.get("LLAMACPP_CONTAINER_NAME") or "hexe-ai-node-llamacpp"
+        ).strip()
+        self._docker_bin = str(os.environ.get("DOCKER_BIN") or "docker").strip() or "docker"
         self._cpu_samples: dict[str, tuple[float, float]] = {}
         uid = os.getuid()
         self._runtime_dir = f"/run/user/{uid}"
@@ -115,19 +119,38 @@ class UserSystemdServiceManager:
         state = "running" if llama_socket_ready and health_socket_ready else "stopped"
         if not script_exists:
             state = "unknown"
+        pid = self._query_local_llm_pid() if script_exists else 0
+        cpu_percent = self._process_cpu_percent(service_id, pid)
+        mem_percent = self._process_mem_percent(pid)
         return {
             "service_id": service_id,
             "service_name": service_id,
             "state": state,
-            "cpu_percent": None,
-            "mem_percent": None,
-            "pid": None,
+            "cpu_percent": cpu_percent,
+            "mem_percent": mem_percent,
+            "pid": pid or None,
             "boot_order": 30,
             "managed_by": "llamacpp-control",
             "control_script": self._local_llm_control_script,
+            "container_name": self._local_llm_container_name or None,
             "socket_path": self._local_llm_socket or None,
             "health_socket_path": self._local_llm_health_socket or None,
         }
+
+    def _query_local_llm_pid(self) -> int:
+        if not self._local_llm_container_name:
+            return 0
+        try:
+            result = subprocess.run(
+                [self._docker_bin, "inspect", "--format", "{{.State.Pid}}", self._local_llm_container_name],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            raw = str(result.stdout or "").strip()
+            return max(int(raw or 0), 0)
+        except Exception:
+            return 0
 
     def _run_local_llm_control(self, command: str) -> None:
         if not os.path.exists(self._local_llm_control_script):

@@ -1217,6 +1217,44 @@ class NodeControlApiTests(unittest.TestCase):
             self.assertEqual(prompt["status"], "review_due")
             self.assertEqual(prompt["lifecycle_history"][-1]["reason"], "policy_migration_review_due")
 
+    def test_supervisor_runtime_payload_includes_local_llm_process_metrics(self):
+        class _ServiceManager:
+            def get_status(self):
+                return {
+                    "backend": {"service_id": "backend", "state": "running"},
+                    "frontend": {"service_id": "frontend", "state": "running"},
+                    "local_llm": {
+                        "service_id": "local_llm",
+                        "state": "running",
+                        "pid": 4242,
+                        "cpu_percent": 12.34,
+                        "mem_percent": 56.78,
+                    },
+                    "node": "running",
+                }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = NodeLifecycle(logger=logging.getLogger("node-control-test"))
+            lifecycle.transition_to(NodeLifecycleState.TRUSTED)
+            lifecycle.transition_to(NodeLifecycleState.CAPABILITY_SETUP_PENDING)
+            lifecycle.transition_to(NodeLifecycleState.CAPABILITY_DECLARATION_IN_PROGRESS)
+            lifecycle.transition_to(NodeLifecycleState.CAPABILITY_DECLARATION_ACCEPTED)
+            lifecycle.transition_to(NodeLifecycleState.OPERATIONAL)
+            state = NodeControlState(
+                lifecycle=lifecycle,
+                config_path=str(Path(tmp) / "bootstrap_config.json"),
+                logger=logging.getLogger("node-control-test"),
+                trust_state_store=self._FakeTrustStateStore(),
+                service_manager=_ServiceManager(),
+            )
+
+            payload = state._supervisor_runtime_payload()
+
+        local_llm = payload["runtime_metadata"]["services"]["local_llm"]
+        self.assertEqual(local_llm["pid"], 4242)
+        self.assertEqual(local_llm["cpu_percent"], 12.34)
+        self.assertEqual(local_llm["mem_percent"], 56.78)
+
 
 class NodeControlOperationalMqttRecoveryTests(unittest.IsolatedAsyncioTestCase):
     class _FakeCapabilityRunner:
