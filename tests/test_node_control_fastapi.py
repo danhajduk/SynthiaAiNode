@@ -134,6 +134,8 @@ class NodeControlFastApiTests(unittest.TestCase):
                 "configured": True,
                 "current_model_id": "qwen3-8b-q4_k_m",
                 "activity_status": "running",
+                "last_swap": {"model_id": "qwen3-8b-q4_k_m", "duration_seconds": 12.5, "error": None},
+                "ready_timeout_seconds": 420,
                 "models": [{"id": "qwen3-8b-q4_k_m"}, {"id": "qwen3-14b-q4_k_m"}],
             }
 
@@ -534,6 +536,8 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertTrue(response.json()["active_benchmark"]["active"])
             self.assertEqual(response.json()["active_benchmark"]["status"], "running")
             self.assertEqual(response.json()["active_benchmark"]["running_count"], 1)
+            self.assertEqual(response.json()["active_benchmark"]["last_swap"]["duration_seconds"], 12.5)
+            self.assertEqual(response.json()["active_benchmark"]["ready_timeout_seconds"], 420)
             self.assertEqual(response.json()["gpu_vram"]["memory_used_mib"], 10)
 
             capture_response = client.post("/api/benchmarks/local-llm/capture", json={"enabled": False})

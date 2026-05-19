@@ -87,6 +87,11 @@ function buildOperationalProps(overrides = {}) {
       rotation: {
         current_model_id: "qwen3-8b-q4_k_m",
         updated_at: "2026-05-19T21:00:00Z",
+        last_swap: {
+          model_id: "qwen3-8b-q4_k_m",
+          duration_seconds: 12.5,
+          error: null,
+        },
         models: [
           { id: "qwen3-8b-q4_k_m" },
           { id: "qwen3-14b-q4_k_m" },
@@ -316,6 +321,8 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("Run Loaded Model");
     expect(markup).toContain("Running");
     expect(markup).toContain("Benchmark: qwen3-8b-q4_k_m");
+    expect(markup).toContain("Last Swap");
+    expect(markup).toContain("12.5s");
     expect(markup).toContain("Current VRAM Load");
     expect(markup).toContain("11,072 / 12,288 MiB");
     expect(markup).toContain("llama.cpp VRAM");

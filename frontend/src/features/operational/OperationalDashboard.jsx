@@ -84,6 +84,20 @@ function formatMetricValue(value, suffix = "") {
   return `${numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
 }
 
+function formatSeconds(value) {
+  if (value === null || value === undefined || value === "") {
+    return "pending";
+  }
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  if (numberValue < 60) {
+    return `${numberValue.toLocaleString(undefined, { maximumFractionDigits: 1 })}s`;
+  }
+  return `${(numberValue / 60).toLocaleString(undefined, { maximumFractionDigits: 1 })}m`;
+}
+
 function formatBenchmarkStatus(status, active) {
   const normalized = String(status || "").trim().toLowerCase();
   if (["idle", "running", "swapping"].includes(normalized)) {
@@ -381,6 +395,12 @@ function LocalLLMBenchmarkTable({
   const modelIds = Array.from(new Set([...configuredModels, ...discoveredModels])).slice(0, 4);
   const currentModelId = summary?.rotation?.current_model_id || "unknown";
   const activeBenchmarkStatus = formatBenchmarkStatus(summary?.active_benchmark?.status, summary?.active_benchmark?.active);
+  const lastSwap = summary?.rotation?.last_swap || summary?.active_benchmark?.last_swap || null;
+  const swapDuration =
+    summary?.active_benchmark?.status === "swapping"
+      ? summary?.active_benchmark?.swap_elapsed_seconds
+      : lastSwap?.duration_seconds;
+  const swapError = lastSwap?.error;
   const modelSummaries = buildLocalModelSummaries({ comparisons, modelIds });
 
   return (
@@ -442,6 +462,10 @@ function LocalLLMBenchmarkTable({
             Benchmark
             {summary?.active_benchmark?.current_model_id ? `: ${summary.active_benchmark.current_model_id}` : ""}
           </span>
+        </div>
+        <div className={`benchmark-status-pill${swapError ? " benchmark-status-pill-warning" : ""}`}>
+          <strong>{formatSeconds(swapDuration)}</strong>
+          <span>{summary?.active_benchmark?.status === "swapping" ? "Current Swap" : "Last Swap"}</span>
         </div>
         <div className="benchmark-status-pill">
           <strong>{formatMetricValue(summary?.status_counts?.pending || 0)}</strong>

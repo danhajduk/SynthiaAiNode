@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import socket
+import time
 import urllib.request
 from pathlib import Path
 from typing import Awaitable, Callable
@@ -34,16 +35,35 @@ class LocalLLMBenchmarkRotationRunner:
         self._model_ids = [str(item).strip() for item in (model_ids or DEFAULT_LOCAL_LLM_BENCHMARK_MODELS) if str(item).strip()]
         self._batch_limit = max(int(batch_limit), 1)
         self._command_runner = command_runner or self._run_command
+        self._ready_timeout_seconds = max(
+            int(os.environ.get("SYNTHIA_LOCAL_LLM_SWAP_READY_TIMEOUT_SECONDS") or os.environ.get("LLAMACPP_READY_TIMEOUT_S") or 420),
+            60,
+        )
         self._activity_status = "idle"
         self._activity_model_id: str | None = None
+        self._swap_started_at: str | None = None
+        self._swap_started_monotonic: float | None = None
         self._state_path.parent.mkdir(parents=True, exist_ok=True)
 
     async def run_once(self) -> dict:
         model = self._next_model()
         model_id = str(model["id"])
         try:
-            self._set_activity_status("swapping", model_id=model_id)
-            switch_result = await self._load_model(model)
+            self._begin_swap(model_id=model_id)
+            try:
+                switch_result = await self._load_model(model)
+            except Exception as exc:
+                self._finish_swap(model_id=model_id, error=str(exc).strip() or type(exc).__name__)
+                raise
+            last_swap = self._finish_swap(model_id=model_id, error=None)
+            switch_result = {
+                **switch_result,
+                "swap_started_at": last_swap["started_at"],
+                "swap_completed_at": last_swap["completed_at"],
+                "swap_duration_seconds": last_swap["duration_seconds"],
+                "swap_error": last_swap["error"],
+                "ready_timeout_seconds": last_swap["ready_timeout_seconds"],
+            }
             self._set_activity_status("running", model_id=model_id)
             worker_result = await self._worker.run_pending_for_model(
                 model_id=model_id,
@@ -58,7 +78,7 @@ class LocalLLMBenchmarkRotationRunner:
                 "switch_result": switch_result,
                 "worker_result": worker_result,
             }
-            self._save_state(model_id=model_id, result=result)
+            self._save_state(model_id=model_id, result=result, last_swap=last_swap)
             return result
         finally:
             self._set_activity_status("idle", model_id=None)
@@ -94,6 +114,10 @@ class LocalLLMBenchmarkRotationRunner:
             "models": models,
             "updated_at": state.get("updated_at"),
             "last_result": state.get("last_result") if isinstance(state.get("last_result"), dict) else None,
+            "last_swap": state.get("last_swap") if isinstance(state.get("last_swap"), dict) else None,
+            "swap_started_at": self._swap_started_at,
+            "swap_elapsed_seconds": self._swap_elapsed_seconds(),
+            "ready_timeout_seconds": self._ready_timeout_seconds,
             "activity_status": self._activity_status,
             "activity_model_id": self._activity_model_id,
         }
@@ -101,6 +125,32 @@ class LocalLLMBenchmarkRotationRunner:
     def _set_activity_status(self, status: str, *, model_id: str | None) -> None:
         self._activity_status = status
         self._activity_model_id = model_id
+
+    def _begin_swap(self, *, model_id: str) -> None:
+        self._swap_started_at = local_now_iso()
+        self._swap_started_monotonic = time.monotonic()
+        self._set_activity_status("swapping", model_id=model_id)
+
+    def _finish_swap(self, *, model_id: str, error: str | None) -> dict:
+        completed_at = local_now_iso()
+        duration = self._swap_elapsed_seconds()
+        payload = {
+            "model_id": model_id,
+            "started_at": self._swap_started_at,
+            "completed_at": completed_at,
+            "duration_seconds": duration,
+            "error": error or None,
+            "ready_timeout_seconds": self._ready_timeout_seconds,
+        }
+        self._save_state(model_id=str(self._load_state().get("current_model_id") or ""), result=None, last_swap=payload)
+        self._swap_started_at = None
+        self._swap_started_monotonic = None
+        return payload
+
+    def _swap_elapsed_seconds(self) -> float | None:
+        if self._swap_started_monotonic is None:
+            return None
+        return round(max(time.monotonic() - self._swap_started_monotonic, 0.0), 3)
 
     @staticmethod
     def _live_model_id() -> str | None:
@@ -172,12 +222,15 @@ class LocalLLMBenchmarkRotationRunner:
             return {}
         return payload if isinstance(payload, dict) else {}
 
-    def _save_state(self, *, model_id: str, result: dict) -> None:
+    def _save_state(self, *, model_id: str, result: dict | None, last_swap: dict | None = None) -> None:
+        existing = self._load_state()
+        current_model_id = model_id or str(existing.get("current_model_id") or "").strip()
         payload = {
             "schema_version": "1.0",
-            "current_model_id": model_id,
+            "current_model_id": current_model_id,
             "updated_at": local_now_iso(),
-            "last_result": result,
+            "last_result": result if result is not None else existing.get("last_result"),
+            "last_swap": last_swap if last_swap is not None else existing.get("last_swap"),
         }
         self._state_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -189,6 +242,7 @@ class LocalLLMBenchmarkRotationRunner:
         if repo and quantization:
             env["LLAMACPP_MODEL_HF"] = f"{repo}:{quantization}"
         env["LLAMACPP_MODEL_ALIAS"] = model_id
+        env["LLAMACPP_READY_TIMEOUT_S"] = str(self._ready_timeout_seconds)
         if model.get("ctx_size") is not None:
             env["LLAMACPP_CTX_SIZE"] = str(model.get("ctx_size"))
         command = [self._control_script, "ready"]

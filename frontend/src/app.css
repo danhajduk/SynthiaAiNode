@@ -526,6 +526,10 @@
   font-size: 12px;
 }
 
+.benchmark-status-pill-warning {
+  border-color: hsl(var(--sx-warning) / 0.75);
+}
+
 .client-usage-metric-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

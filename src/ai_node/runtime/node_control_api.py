@@ -958,6 +958,10 @@ class NodeControlState:
             "scheduler_status": benchmark_task.get("status") if isinstance(benchmark_task, dict) else None,
             "current_model_id": rotation.get("current_model_id"),
             "activity_model_id": rotation.get("activity_model_id"),
+            "swap_started_at": rotation.get("swap_started_at"),
+            "swap_elapsed_seconds": rotation.get("swap_elapsed_seconds"),
+            "last_swap": rotation.get("last_swap"),
+            "ready_timeout_seconds": rotation.get("ready_timeout_seconds"),
             "running": running_rows,
         }
         payload["gpu_vram"] = self._gpu_vram_payload()
