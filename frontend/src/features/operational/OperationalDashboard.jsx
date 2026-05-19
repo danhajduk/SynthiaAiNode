@@ -100,6 +100,26 @@ function labelSummary({ label, confidence, outputText }) {
   return `${labelValue}${score === null || score === undefined || score === "" ? "" : ` (${formatMetricValue(score)})`}`;
 }
 
+function outputScore({ confidence, outputText }) {
+  const payload = parseOutputPayload(outputText);
+  const score = confidence ?? payload.confidence ?? payload.score;
+  const numberValue = Number(score);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function outputLabel({ label, outputText }) {
+  const payload = parseOutputPayload(outputText);
+  return String(label || payload.label || "").trim().toLowerCase();
+}
+
+function average(values) {
+  const numbers = values.map(Number).filter(Number.isFinite);
+  if (!numbers.length) {
+    return null;
+  }
+  return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
+}
+
 function reasoningText(result) {
   const payload = parseOutputPayload(result?.output_text);
   return payload.rationale || payload.reasoning || payload.reason || payload.explanation || result?.output_text || "none";
@@ -123,6 +143,101 @@ function LocalModelCell({ result, modelId }) {
       <span className="muted tiny">VRAM {formatMetricValue(result.vram_used_mib ?? result.vram_delta_mib, " MiB")}</span>
       <span className="muted tiny">GPU {formatMetricValue(result.gpu_util_percent, "%")}</span>
       {result.error ? <span className="error tiny">{result.error}</span> : null}
+    </div>
+  );
+}
+
+function buildLocalModelSummaries({ comparisons, modelIds }) {
+  return modelIds.map((modelId) => {
+    const completedResults = [];
+    let matchedLabels = 0;
+    for (const comparison of comparisons) {
+      const localResults = Array.isArray(comparison?.local_results) ? comparison.local_results : [];
+      const result = localResults.find((item) => item?.model_id === modelId);
+      if (!result || result.status !== "completed") {
+        continue;
+      }
+      const openAiLabel = outputLabel({
+        label: comparison?.openai?.label,
+        outputText: comparison?.openai?.output_text,
+      });
+      const localLabel = outputLabel({ label: result.label, outputText: result.output_text });
+      if (openAiLabel && localLabel && openAiLabel === localLabel) {
+        matchedLabels += 1;
+      }
+      completedResults.push({
+        localScore: outputScore({ confidence: result.confidence, outputText: result.output_text }),
+        openAiScore: outputScore({
+          confidence: comparison?.openai?.confidence,
+          outputText: comparison?.openai?.output_text,
+        }),
+        latency: result.latency_ms,
+        vram: result.vram_used_mib ?? result.vram_delta_mib,
+        gpu: result.gpu_util_percent,
+      });
+    }
+    const scoreDeltas = completedResults
+      .map((item) => (item.localScore !== null && item.openAiScore !== null ? item.localScore - item.openAiScore : null))
+      .filter((value) => value !== null);
+    return {
+      modelId,
+      completed: completedResults.length,
+      matchRate: completedResults.length ? matchedLabels / completedResults.length : null,
+      avgScoreDelta: average(scoreDeltas),
+      avgLatency: average(completedResults.map((item) => item.latency)),
+      avgVram: average(completedResults.map((item) => item.vram)),
+      avgGpu: average(completedResults.map((item) => item.gpu)),
+    };
+  });
+}
+
+function LocalLLMSummaryTable({ summaries }) {
+  return (
+    <div className="client-usage-table-card">
+      <div className="client-usage-table-wrap">
+        <table className="client-usage-table local-llm-summary-table">
+          <thead>
+            <tr>
+              <th>Local LLM</th>
+              <th>Completed</th>
+              <th>Label Match</th>
+              <th>Avg Score Delta</th>
+              <th>Avg Latency</th>
+              <th>Avg VRAM</th>
+              <th>Avg GPU</th>
+            </tr>
+          </thead>
+          <tbody>
+            {summaries.length ? (
+              summaries.map((summary) => (
+                <tr key={summary.modelId}>
+                  <td>
+                    <code>{summary.modelId}</code>
+                  </td>
+                  <td>{formatMetricValue(summary.completed)}</td>
+                  <td>
+                    {summary.matchRate === null ? "pending" : `${formatMetricValue(summary.matchRate * 100)}%`}
+                  </td>
+                  <td>
+                    {summary.avgScoreDelta === null
+                      ? "pending"
+                      : `${summary.avgScoreDelta > 0 ? "+" : ""}${formatMetricValue(summary.avgScoreDelta)}`}
+                  </td>
+                  <td>{formatMetricValue(summary.avgLatency, " ms")}</td>
+                  <td>{formatMetricValue(summary.avgVram, " MiB")}</td>
+                  <td>{formatMetricValue(summary.avgGpu, "%")}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="7" className="muted">
+                  No local LLM models are configured for this benchmark rotation.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -216,6 +331,7 @@ function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false })
   );
   const modelIds = Array.from(new Set([...configuredModels, ...discoveredModels])).slice(0, 4);
   const currentModelId = summary?.rotation?.current_model_id || "unknown";
+  const modelSummaries = buildLocalModelSummaries({ comparisons, modelIds });
 
   return (
     <>
@@ -246,6 +362,7 @@ function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false })
           <span>Failed</span>
         </div>
       </div>
+      <LocalLLMSummaryTable summaries={modelSummaries} />
       <div className="client-usage-table-card">
         <div className="client-usage-table-wrap">
           <table className="client-usage-table local-llm-benchmark-table">

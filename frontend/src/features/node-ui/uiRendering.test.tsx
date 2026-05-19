@@ -104,6 +104,7 @@ function buildOperationalProps(overrides = {}) {
           openai: {
             model_id: "gpt-5.4-nano",
             label: "action_required",
+            confidence: 0.8,
             usage: { total_tokens: 140 },
             latency_ms: 1200,
           },
@@ -111,7 +112,8 @@ function buildOperationalProps(overrides = {}) {
             {
               model_id: "qwen3-8b-q4_k_m",
               status: "completed",
-              label: "system",
+              label: "action_required",
+              confidence: 0.7,
               total_tokens: 132,
               latency_ms: 3200,
               vram_used_mib: 5456,
@@ -284,6 +286,10 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("prompt.email.classifier");
     expect(markup).toContain("gpt-5.4-nano");
     expect(markup).toContain("qwen3-8b-q4_k_m");
+    expect(markup).toContain("Label Match");
+    expect(markup).toContain("Avg Score Delta");
+    expect(markup).toContain("100%");
+    expect(markup).toContain("-0.1");
     expect(markup).toContain("5,456 MiB");
     expect(markup).toContain("42%");
     expect(markup).toContain("Cycle Model");

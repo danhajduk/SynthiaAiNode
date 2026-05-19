@@ -625,6 +625,20 @@
   min-width: 1180px;
 }
 
+.local-llm-summary-table {
+  min-width: 820px;
+}
+
+.local-llm-summary-table td,
+.local-llm-summary-table th {
+  white-space: nowrap;
+}
+
+.local-llm-summary-table td:first-child,
+.local-llm-summary-table th:first-child {
+  white-space: normal;
+}
+
 .local-llm-benchmark-table td {
   vertical-align: top;
 }
