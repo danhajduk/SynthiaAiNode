@@ -147,48 +147,57 @@ function LocalModelCell({ result, modelId }) {
   );
 }
 
+function promptName(comparison) {
+  return comparison?.prompt_id || comparison?.task_family || "unattributed";
+}
+
 function buildLocalModelSummaries({ comparisons, modelIds }) {
-  return modelIds.map((modelId) => {
-    const completedResults = [];
-    let matchedLabels = 0;
-    for (const comparison of comparisons) {
-      const localResults = Array.isArray(comparison?.local_results) ? comparison.local_results : [];
-      const result = localResults.find((item) => item?.model_id === modelId);
-      if (!result || result.status !== "completed") {
-        continue;
-      }
-      const openAiLabel = outputLabel({
-        label: comparison?.openai?.label,
-        outputText: comparison?.openai?.output_text,
-      });
-      const localLabel = outputLabel({ label: result.label, outputText: result.output_text });
-      if (openAiLabel && localLabel && openAiLabel === localLabel) {
-        matchedLabels += 1;
-      }
-      completedResults.push({
-        localScore: outputScore({ confidence: result.confidence, outputText: result.output_text }),
-        openAiScore: outputScore({
-          confidence: comparison?.openai?.confidence,
+  const promptNames = Array.from(new Set(comparisons.map(promptName)));
+  return promptNames.flatMap((name) =>
+    modelIds.map((modelId) => {
+      const completedResults = [];
+      let matchedLabels = 0;
+      const promptComparisons = comparisons.filter((comparison) => promptName(comparison) === name);
+      for (const comparison of promptComparisons) {
+        const localResults = Array.isArray(comparison?.local_results) ? comparison.local_results : [];
+        const result = localResults.find((item) => item?.model_id === modelId);
+        if (!result || result.status !== "completed") {
+          continue;
+        }
+        const openAiLabel = outputLabel({
+          label: comparison?.openai?.label,
           outputText: comparison?.openai?.output_text,
-        }),
-        latency: result.latency_ms,
-        vram: result.vram_used_mib ?? result.vram_delta_mib,
-        gpu: result.gpu_util_percent,
-      });
-    }
-    const scoreDeltas = completedResults
-      .map((item) => (item.localScore !== null && item.openAiScore !== null ? item.localScore - item.openAiScore : null))
-      .filter((value) => value !== null);
-    return {
-      modelId,
-      completed: completedResults.length,
-      matchRate: completedResults.length ? matchedLabels / completedResults.length : null,
-      avgScoreDelta: average(scoreDeltas),
-      avgLatency: average(completedResults.map((item) => item.latency)),
-      avgVram: average(completedResults.map((item) => item.vram)),
-      avgGpu: average(completedResults.map((item) => item.gpu)),
-    };
-  });
+        });
+        const localLabel = outputLabel({ label: result.label, outputText: result.output_text });
+        if (openAiLabel && localLabel && openAiLabel === localLabel) {
+          matchedLabels += 1;
+        }
+        completedResults.push({
+          localScore: outputScore({ confidence: result.confidence, outputText: result.output_text }),
+          openAiScore: outputScore({
+            confidence: comparison?.openai?.confidence,
+            outputText: comparison?.openai?.output_text,
+          }),
+          latency: result.latency_ms,
+          vram: result.vram_used_mib ?? result.vram_delta_mib,
+          gpu: result.gpu_util_percent,
+        });
+      }
+      const scoreDeltas = completedResults
+        .map((item) => (item.localScore !== null && item.openAiScore !== null ? item.localScore - item.openAiScore : null))
+        .filter((value) => value !== null);
+      return {
+        promptName: name,
+        modelId,
+        completed: completedResults.length,
+        matchRate: completedResults.length ? matchedLabels / completedResults.length : null,
+        avgScoreDelta: average(scoreDeltas),
+        avgLatency: average(completedResults.map((item) => item.latency)),
+        avgVram: average(completedResults.map((item) => item.vram)),
+        avgGpu: average(completedResults.map((item) => item.gpu)),
+      };
+    })
+  );
 }
 
 function LocalLLMSummaryTable({ summaries }) {
@@ -198,6 +207,7 @@ function LocalLLMSummaryTable({ summaries }) {
         <table className="client-usage-table local-llm-summary-table">
           <thead>
             <tr>
+              <th>Prompt</th>
               <th>Local LLM</th>
               <th>Completed</th>
               <th>Label Match</th>
@@ -210,7 +220,10 @@ function LocalLLMSummaryTable({ summaries }) {
           <tbody>
             {summaries.length ? (
               summaries.map((summary) => (
-                <tr key={summary.modelId}>
+                <tr key={`${summary.promptName}-${summary.modelId}`}>
+                  <td>
+                    <code>{summary.promptName}</code>
+                  </td>
                   <td>
                     <code>{summary.modelId}</code>
                   </td>
@@ -230,7 +243,7 @@ function LocalLLMSummaryTable({ summaries }) {
               ))
             ) : (
               <tr>
-                <td colSpan="7" className="muted">
+                <td colSpan="8" className="muted">
                   No local LLM models are configured for this benchmark rotation.
                 </td>
               </tr>
@@ -431,7 +444,7 @@ function LocalLLMBenchmarkTable({
                     }}
                   >
                     <td>
-                      <code>{comparison.prompt_id || comparison.task_family || "unattributed"}</code>
+                      <code>{promptName(comparison)}</code>
                       {comparison.input_snippet ? <span className="muted tiny benchmark-snippet">{comparison.input_snippet}</span> : null}
                     </td>
                     <td>
