@@ -111,13 +111,21 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.payload = payload
 
     class _FakeLocalLLMBenchmarkStore:
+        def __init__(self):
+            self.capture_enabled = True
+
         def summary_payload(self):
             return {
                 "configured": True,
+                "capture_enabled": self.capture_enabled,
                 "status_counts": {"pending": 1},
                 "running": [{"record_id": "openai-test", "model_id": "qwen3-8b-q4_k_m"}],
                 "comparisons": [{"record_id": "openai-test", "local_results": []}],
             }
+
+        def set_capture_enabled(self, *, enabled: bool):
+            self.capture_enabled = bool(enabled)
+            return {"capture_enabled": bool(enabled)}
 
     class _FakeLocalLLMBenchmarkRunner:
         def status_payload(self):
@@ -519,6 +527,12 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertEqual(response.json()["rotation"]["current_model_id"], "qwen3-8b-q4_k_m")
             self.assertTrue(response.json()["active_benchmark"]["active"])
             self.assertEqual(response.json()["active_benchmark"]["running_count"], 1)
+
+            capture_response = client.post("/api/benchmarks/local-llm/capture", json={"enabled": False})
+
+            self.assertEqual(capture_response.status_code, 200)
+            self.assertFalse(capture_response.json()["capture_enabled"])
+            self.assertFalse(capture_response.json()["benchmark"]["capture_enabled"])
 
             cycle_response = client.post("/api/benchmarks/local-llm/cycle")
 

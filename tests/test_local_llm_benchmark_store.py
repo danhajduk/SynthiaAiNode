@@ -82,6 +82,24 @@ class LocalLLMBenchmarkStoreTests(unittest.TestCase):
             self.assertIsNone(record_id)
             self.assertEqual(store.summary_payload()["comparisons"], [])
 
+    def test_capture_toggle_stops_new_openai_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalLLMBenchmarkStore(
+                path=str(Path(tmp) / "local_llm_benchmarks.db"),
+                logger=logging.getLogger("local-llm-benchmark-test"),
+            )
+
+            store.set_capture_enabled(enabled=False)
+            record_id = store.record_openai_execution(
+                request=UnifiedExecutionRequest(task_family="task.classification", prompt="hello"),
+                response=UnifiedExecutionResponse(provider_id="openai", model_id="gpt-5.4-nano", output_text="{}"),
+            )
+
+            payload = store.summary_payload()
+            self.assertIsNone(record_id)
+            self.assertFalse(payload["capture_enabled"])
+            self.assertEqual(payload["comparisons"], [])
+
     def test_parse_structured_output_summary_is_best_effort(self):
         self.assertEqual(
             parse_structured_output_summary('{"label":"shipment","confidence":"0.95"}'),

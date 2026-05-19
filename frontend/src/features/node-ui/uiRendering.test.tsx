@@ -99,6 +99,7 @@ function buildOperationalProps(overrides = {}) {
         current_model_id: "qwen3-8b-q4_k_m",
         running_count: 1,
       },
+      capture_enabled: true,
       status_counts: { pending: 1, completed: 1, failed: 0 },
       comparisons: [
         {
@@ -298,6 +299,7 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("5,456 MiB");
     expect(markup).toContain("42%");
     expect(markup).toContain("Clear Prompt List");
+    expect(markup).toContain("Stop Fetching Prompts");
     expect(markup).toContain("Cycle Model");
     expect(markup).toContain("Active");
     expect(markup).toContain("Benchmark: qwen3-8b-q4_k_m");

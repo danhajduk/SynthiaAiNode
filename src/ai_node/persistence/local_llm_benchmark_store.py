@@ -120,6 +120,14 @@ class LocalLLMBenchmarkStore:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_benchmark_model_status ON benchmark_model_results(status, model_id, created_at)"
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS benchmark_metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
+                """
+            )
             self._ensure_column(
                 connection=connection,
                 table="benchmark_model_results",
@@ -149,6 +157,28 @@ class LocalLLMBenchmarkStore:
                 deduped.append(model_id)
         return deduped or list(DEFAULT_LOCAL_LLM_BENCHMARK_MODELS)
 
+    def capture_enabled(self) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT value FROM benchmark_metadata WHERE key = 'capture_enabled'"
+            ).fetchone()
+        if row is None:
+            return True
+        return str(row["value"] or "").strip().lower() not in {"0", "false", "no", "off"}
+
+    def set_capture_enabled(self, *, enabled: bool) -> dict:
+        value = "1" if bool(enabled) else "0"
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO benchmark_metadata(key, value)
+                VALUES('capture_enabled', ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (value,),
+            )
+        return {"capture_enabled": bool(enabled)}
+
     def record_openai_execution(
         self,
         *,
@@ -157,6 +187,8 @@ class LocalLLMBenchmarkStore:
         model_ids: list[str] | None = None,
     ) -> str | None:
         if str(response.provider_id or "").strip().lower() != "openai":
+            return None
+        if not self.capture_enabled():
             return None
         now = local_now_iso()
         request_payload = request.model_dump(mode="json")
@@ -265,6 +297,7 @@ class LocalLLMBenchmarkStore:
             "configured": True,
             "path": str(self._path),
             "generated_at": local_now_iso(),
+            "capture_enabled": self.capture_enabled(),
             "status_counts": {str(row["status"]): int(row["count"] or 0) for row in status_rows},
             "running": [
                 {

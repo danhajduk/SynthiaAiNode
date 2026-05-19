@@ -320,7 +320,13 @@ function BenchmarkDetailModal({ comparison, modelIds, onClose }) {
   );
 }
 
-function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false }) {
+function LocalLLMBenchmarkTable({
+  summary,
+  onCycleModel,
+  cyclingModel = false,
+  onSetCaptureEnabled,
+  captureChanging = false,
+}) {
   const [selectedComparison, setSelectedComparison] = useState(null);
   const [promptListCleared, setPromptListCleared] = useState(false);
   const comparisons = Array.isArray(summary?.comparisons) ? summary.comparisons : [];
@@ -355,6 +361,18 @@ function LocalLLMBenchmarkTable({ summary, onCycleModel, cyclingModel = false })
               Show Prompts
             </button>
           ) : null}
+          <button
+            className="btn"
+            type="button"
+            onClick={() => onSetCaptureEnabled?.(!summary?.capture_enabled)}
+            disabled={!onSetCaptureEnabled || captureChanging}
+          >
+            {captureChanging
+              ? "Updating..."
+              : summary?.capture_enabled
+                ? "Stop Fetching Prompts"
+                : "Start Fetching Prompts"}
+          </button>
           <button className="btn btn-primary" type="button" onClick={onCycleModel} disabled={!onCycleModel || cyclingModel}>
             {cyclingModel ? "Cycling..." : "Cycle Model"}
           </button>
@@ -471,6 +489,8 @@ export function OperationalDashboard({
   localLlmBenchmarkSummary = null,
   onCycleLocalLlmModel,
   cyclingLocalLlmModel = false,
+  onSetLocalLlmBenchmarkCapture,
+  localLlmBenchmarkCaptureChanging = false,
   governanceStatus = null,
   scheduledTasksProps = null,
   onboardingSteps = [],
@@ -589,6 +609,8 @@ export function OperationalDashboard({
             summary={localLlmBenchmarkSummary}
             onCycleModel={onCycleLocalLlmModel}
             cyclingModel={cyclingLocalLlmModel}
+            onSetCaptureEnabled={onSetLocalLlmBenchmarkCapture}
+            captureChanging={localLlmBenchmarkCaptureChanging}
           />
         ) : null}
 

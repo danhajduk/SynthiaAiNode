@@ -950,6 +950,16 @@ class NodeControlState:
         }
         return payload
 
+    def set_local_llm_benchmark_capture_enabled(self, *, enabled: bool) -> dict:
+        if self._local_llm_benchmark_store is None or not hasattr(self._local_llm_benchmark_store, "set_capture_enabled"):
+            raise ValueError("local_llm_benchmark_store_not_configured")
+        self._local_llm_benchmark_store.set_capture_enabled(enabled=enabled)
+        return {
+            "status": "ok",
+            "capture_enabled": bool(enabled),
+            "benchmark": self.local_llm_benchmark_comparison_payload(),
+        }
+
     async def cycle_local_llm_benchmark_model(self) -> dict:
         if self._local_llm_benchmark_runner is None or not hasattr(self._local_llm_benchmark_runner, "run_once"):
             raise ValueError("local_llm_benchmark_runner_not_configured")
@@ -2930,6 +2940,10 @@ class RefreshTriggerRequest(BaseModel):
     force_refresh: bool = True
 
 
+class LocalLLMBenchmarkCaptureRequest(BaseModel):
+    enabled: bool = True
+
+
 class PromptServiceRegisterRequest(BaseModel):
     prompt_id: str
     service_id: str
@@ -3352,6 +3366,13 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     async def post_local_llm_benchmark_cycle():
         try:
             return await state.cycle_local_llm_benchmark_model()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.post("/api/benchmarks/local-llm/capture")
+    def post_local_llm_benchmark_capture(payload: LocalLLMBenchmarkCaptureRequest):
+        try:
+            return state.set_local_llm_benchmark_capture_enabled(enabled=payload.enabled)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
