@@ -463,3 +463,36 @@ Task mapping:
 - Task 379: Detect resolved task-family changes after enabled-model updates
 - Task 380: Trigger capability redeclaration only when enabled-model changes alter the task surface
 - Task 381: Update API/tests/docs to report redeclaration outcome for enabled-model changes
+
+## Task 382-386
+Original task source: user request on 2026-05-19
+
+Preserved scope:
+- Build local LLM shadow benchmarking for OpenAI calls.
+- Production execution must continue to use and return the OpenAI response.
+- Every successful OpenAI call should be stored as a benchmark source record with enough normalized request/response data to replay locally.
+- Each record should track local benchmark status independently for:
+  - `qwen3-8b-q4_k_m`
+  - `qwen3-14b-q4_k_m`
+- The benchmark worker should run prompts against whichever llama.cpp model is currently loaded.
+- Every 15 minutes, the worker should switch llama.cpp to the other benchmark model when there is pending work for that model.
+- After switching, the worker should wait for readiness, then process all missing and new benchmark prompts for the currently loaded model.
+- Local benchmark failures must be recorded without affecting the OpenAI production result.
+- Persist comparison fields useful for the UI:
+  - timestamp
+  - prompt id/version
+  - normalized input snippet or redacted request payload
+  - OpenAI model/output/label/confidence/tokens/latency/cost
+  - 8B output/label/confidence/tokens/latency/status/error
+  - 14B output/label/confidence/tokens/latency/status/error
+  - agreement/mismatch status
+- Add a UI table for comparing OpenAI vs local model behavior.
+- Keep retention bounded, for example by count or age, so replay data does not grow indefinitely.
+- Avoid switching the local model while the local LLM is serving real production work; if that state cannot be detected yet, document and implement a conservative guard.
+
+Task mapping:
+- Task 382: Persist OpenAI shadow benchmark records for local LLM comparison
+- Task 383: Add local LLM benchmark worker with per-model pending status
+- Task 384: Add scheduled llama.cpp model switching for queued benchmark replay
+- Task 385: Expose local LLM benchmark comparison API
+- Task 386: Add local LLM benchmark comparison table to the node UI
