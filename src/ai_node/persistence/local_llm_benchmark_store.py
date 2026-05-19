@@ -264,6 +264,105 @@ class LocalLLMBenchmarkStore:
             ],
         }
 
+    def claim_next_pending(self, *, model_id: str) -> dict | None:
+        normalized_model_id = str(model_id or "").strip()
+        if not normalized_model_id:
+            return None
+        now = local_now_iso()
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT r.*
+                FROM benchmark_records r
+                JOIN benchmark_model_results m ON m.record_id = r.record_id
+                WHERE m.model_id = ? AND m.status = 'pending'
+                ORDER BY r.created_at ASC
+                LIMIT 1
+                """,
+                (normalized_model_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            updated = connection.execute(
+                """
+                UPDATE benchmark_model_results
+                SET status = 'running', started_at = ?, updated_at = ?, error = NULL
+                WHERE record_id = ? AND model_id = ? AND status = 'pending'
+                """,
+                (now, now, row["record_id"], normalized_model_id),
+            ).rowcount
+            if updated != 1:
+                return None
+        return self._record_row_payload(row)
+
+    def record_model_result(
+        self,
+        *,
+        record_id: str,
+        model_id: str,
+        response: UnifiedExecutionResponse,
+        vram_used_mib: float | None = None,
+        vram_delta_mib: float | None = None,
+        load_seconds: float | None = None,
+    ) -> None:
+        now = local_now_iso()
+        output_summary = parse_structured_output_summary(response.output_text)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE benchmark_model_results
+                SET status = 'completed',
+                    completed_at = ?,
+                    updated_at = ?,
+                    latency_ms = ?,
+                    prompt_tokens = ?,
+                    completion_tokens = ?,
+                    total_tokens = ?,
+                    output_text = ?,
+                    label = ?,
+                    confidence = ?,
+                    error = NULL,
+                    vram_used_mib = COALESCE(?, vram_used_mib),
+                    vram_delta_mib = COALESCE(?, vram_delta_mib),
+                    load_seconds = COALESCE(?, load_seconds)
+                WHERE record_id = ? AND model_id = ?
+                """,
+                (
+                    now,
+                    now,
+                    float(response.latency_ms or 0.0),
+                    max(int(response.usage.prompt_tokens or 0), 0),
+                    max(int(response.usage.completion_tokens or 0), 0),
+                    max(int(response.usage.total_tokens or 0), 0),
+                    response.output_text,
+                    output_summary["label"],
+                    output_summary["confidence"],
+                    vram_used_mib,
+                    vram_delta_mib,
+                    load_seconds,
+                    str(record_id or "").strip(),
+                    str(model_id or "").strip(),
+                ),
+            )
+
+    def record_model_failure(self, *, record_id: str, model_id: str, error: str) -> None:
+        now = local_now_iso()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE benchmark_model_results
+                SET status = 'failed', completed_at = ?, updated_at = ?, error = ?
+                WHERE record_id = ? AND model_id = ?
+                """,
+                (
+                    now,
+                    now,
+                    str(error or "").strip()[:1000] or "local_benchmark_failed",
+                    str(record_id or "").strip(),
+                    str(model_id or "").strip(),
+                ),
+            )
+
     @staticmethod
     def _request_input_text(request_payload: dict) -> str:
         prompt = str(request_payload.get("prompt") or "").strip()
@@ -297,4 +396,26 @@ class LocalLLMBenchmarkStore:
             "vram_used_mib": row["vram_used_mib"],
             "vram_delta_mib": row["vram_delta_mib"],
             "load_seconds": row["load_seconds"],
+        }
+
+    @staticmethod
+    def _record_row_payload(row: sqlite3.Row) -> dict:
+        return {
+            "record_id": str(row["record_id"]),
+            "created_at": row["created_at"],
+            "task_family": row["task_family"],
+            "prompt_id": row["prompt_id"],
+            "prompt_version": row["prompt_version"],
+            "trace_id": row["trace_id"],
+            "request_payload": _json_loads(row["request_payload_json"], {}),
+            "openai": {
+                "provider_id": row["source_provider"],
+                "model_id": row["source_model"],
+                "output_text": row["source_output_text"],
+                "label": row["source_label"],
+                "confidence": row["source_confidence"],
+                "usage": _json_loads(row["source_usage_json"], {}),
+                "latency_ms": row["source_latency_ms"],
+                "estimated_cost": row["source_cost_usd"],
+            },
         }
