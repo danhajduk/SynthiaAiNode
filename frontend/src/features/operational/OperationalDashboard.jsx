@@ -411,6 +411,18 @@ function LocalLLMBenchmarkTable({
       </div>
       <div className="client-usage-summary-grid">
         <div className="client-usage-metric-block">
+          <strong>
+            {summary?.gpu_vram?.available
+              ? `${formatMetricValue(summary.gpu_vram.memory_used_mib)} / ${formatMetricValue(summary.gpu_vram.memory_total_mib)} MiB`
+              : "Unavailable"}
+          </strong>
+          <span>Current VRAM Load</span>
+        </div>
+        <div className="client-usage-metric-block">
+          <strong>{formatMetricValue(summary?.gpu_vram?.llama_vram_mib, " MiB")}</strong>
+          <span>llama.cpp VRAM</span>
+        </div>
+        <div className="client-usage-metric-block">
           <strong>{summary?.active_benchmark?.active ? "Active" : "Idle"}</strong>
           <span>
             Benchmark

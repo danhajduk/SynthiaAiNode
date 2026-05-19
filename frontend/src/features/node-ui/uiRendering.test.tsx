@@ -100,6 +100,13 @@ function buildOperationalProps(overrides = {}) {
         running_count: 1,
       },
       capture_enabled: true,
+      gpu_vram: {
+        available: true,
+        memory_used_mib: 11072,
+        memory_total_mib: 12288,
+        llama_vram_mib: 9226,
+        gpu_util_percent: 18,
+      },
       status_counts: { pending: 1, completed: 1, failed: 0 },
       comparisons: [
         {
@@ -307,6 +314,10 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("Cycle Model");
     expect(markup).toContain("Active");
     expect(markup).toContain("Benchmark: qwen3-8b-q4_k_m");
+    expect(markup).toContain("Current VRAM Load");
+    expect(markup).toContain("11,072 / 12,288 MiB");
+    expect(markup).toContain("llama.cpp VRAM");
+    expect(markup).toContain("9,226 MiB");
   });
 
   it("shows friendly task kind and schedule names and sorts the legend by duration", () => {

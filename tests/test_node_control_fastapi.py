@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -518,7 +519,8 @@ class NodeControlFastApiTests(unittest.TestCase):
             app = create_node_control_app(state=state, logger=logging.getLogger("node-control-fastapi-test"))
             client = TestClient(app)
 
-            response = client.get("/api/benchmarks/local-llm/comparisons")
+            with patch.object(NodeControlState, "_gpu_vram_payload", return_value={"available": True, "memory_used_mib": 10, "memory_total_mib": 20}):
+                response = client.get("/api/benchmarks/local-llm/comparisons")
 
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.json()["configured"])
@@ -527,6 +529,7 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertEqual(response.json()["rotation"]["current_model_id"], "qwen3-8b-q4_k_m")
             self.assertTrue(response.json()["active_benchmark"]["active"])
             self.assertEqual(response.json()["active_benchmark"]["running_count"], 1)
+            self.assertEqual(response.json()["gpu_vram"]["memory_used_mib"], 10)
 
             capture_response = client.post("/api/benchmarks/local-llm/capture", json={"enabled": False})
 

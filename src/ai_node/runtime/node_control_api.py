@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import socket
+import subprocess
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -948,7 +949,82 @@ class NodeControlState:
             "current_model_id": (payload.get("rotation") or {}).get("current_model_id") if isinstance(payload.get("rotation"), dict) else None,
             "running": running_rows,
         }
+        payload["gpu_vram"] = self._gpu_vram_payload()
         return payload
+
+    @staticmethod
+    def _gpu_vram_payload() -> dict:
+        try:
+            gpu = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=utilization.gpu,memory.used,memory.total",
+                    "--format=csv,noheader,nounits",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            apps = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-compute-apps=pid,process_name,used_memory",
+                    "--format=csv,noheader,nounits",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+        except Exception as exc:
+            return {"available": False, "error": str(exc)}
+        if gpu.returncode != 0:
+            return {"available": False, "error": (gpu.stderr or gpu.stdout or "nvidia_smi_failed").strip()}
+        first_line = (gpu.stdout or "").splitlines()[0:1]
+        if not first_line:
+            return {"available": False, "error": "nvidia_smi_empty"}
+        parts = [part.strip() for part in first_line[0].split(",")]
+        if len(parts) < 3:
+            return {"available": False, "error": "nvidia_smi_unexpected_output"}
+        try:
+            gpu_util_percent = float(parts[0])
+            memory_used_mib = float(parts[1])
+            memory_total_mib = float(parts[2])
+        except ValueError:
+            return {"available": False, "error": "nvidia_smi_parse_failed"}
+        llama_vram_mib = 0.0
+        other_vram_mib = 0.0
+        processes = []
+        if apps.returncode == 0:
+            for line in (apps.stdout or "").splitlines():
+                process_parts = [part.strip() for part in line.split(",")]
+                if len(process_parts) < 3:
+                    continue
+                try:
+                    used_memory = float(process_parts[2])
+                except ValueError:
+                    continue
+                process_payload = {
+                    "pid": process_parts[0],
+                    "name": process_parts[1],
+                    "used_memory_mib": used_memory,
+                }
+                processes.append(process_payload)
+                if "llama" in process_parts[1].lower():
+                    llama_vram_mib += used_memory
+                else:
+                    other_vram_mib += used_memory
+        return {
+            "available": True,
+            "memory_used_mib": memory_used_mib,
+            "memory_total_mib": memory_total_mib,
+            "memory_free_mib": max(memory_total_mib - memory_used_mib, 0.0),
+            "gpu_util_percent": gpu_util_percent,
+            "llama_vram_mib": llama_vram_mib if llama_vram_mib > 0 else None,
+            "other_vram_mib": other_vram_mib if other_vram_mib > 0 else None,
+            "processes": processes,
+        }
 
     def set_local_llm_benchmark_capture_enabled(self, *, enabled: bool) -> dict:
         if self._local_llm_benchmark_store is None or not hasattr(self._local_llm_benchmark_store, "set_capture_enabled"):
