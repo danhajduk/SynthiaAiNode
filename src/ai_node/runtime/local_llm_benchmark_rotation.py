@@ -34,26 +34,34 @@ class LocalLLMBenchmarkRotationRunner:
         self._model_ids = [str(item).strip() for item in (model_ids or DEFAULT_LOCAL_LLM_BENCHMARK_MODELS) if str(item).strip()]
         self._batch_limit = max(int(batch_limit), 1)
         self._command_runner = command_runner or self._run_command
+        self._activity_status = "idle"
+        self._activity_model_id: str | None = None
         self._state_path.parent.mkdir(parents=True, exist_ok=True)
 
     async def run_once(self) -> dict:
         model = self._next_model()
-        switch_result = await self._load_model(model)
-        worker_result = await self._worker.run_pending_for_model(
-            model_id=str(model["id"]),
-            limit=self._batch_limit,
-        )
-        result = {
-            "model_id": str(model["id"]),
-            "model_repo": model.get("repo"),
-            "model_file": model.get("file"),
-            "ctx_size": model.get("ctx_size"),
-            "switched_at": local_now_iso(),
-            "switch_result": switch_result,
-            "worker_result": worker_result,
-        }
-        self._save_state(model_id=str(model["id"]), result=result)
-        return result
+        model_id = str(model["id"])
+        try:
+            self._set_activity_status("swapping", model_id=model_id)
+            switch_result = await self._load_model(model)
+            self._set_activity_status("running", model_id=model_id)
+            worker_result = await self._worker.run_pending_for_model(
+                model_id=model_id,
+                limit=self._batch_limit,
+            )
+            result = {
+                "model_id": model_id,
+                "model_repo": model.get("repo"),
+                "model_file": model.get("file"),
+                "ctx_size": model.get("ctx_size"),
+                "switched_at": local_now_iso(),
+                "switch_result": switch_result,
+                "worker_result": worker_result,
+            }
+            self._save_state(model_id=model_id, result=result)
+            return result
+        finally:
+            self._set_activity_status("idle", model_id=None)
 
     def status_payload(self) -> dict:
         state = self._load_state()
@@ -65,7 +73,13 @@ class LocalLLMBenchmarkRotationRunner:
             "models": models,
             "updated_at": state.get("updated_at"),
             "last_result": state.get("last_result") if isinstance(state.get("last_result"), dict) else None,
+            "activity_status": self._activity_status,
+            "activity_model_id": self._activity_model_id,
         }
+
+    def _set_activity_status(self, status: str, *, model_id: str | None) -> None:
+        self._activity_status = status
+        self._activity_model_id = model_id
 
     @staticmethod
     def _live_model_id() -> str | None:

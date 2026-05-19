@@ -96,6 +96,7 @@ function buildOperationalProps(overrides = {}) {
       },
       active_benchmark: {
         active: true,
+        status: "running",
         current_model_id: "qwen3-8b-q4_k_m",
         running_count: 1,
       },
@@ -312,7 +313,7 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("Clear Prompt List");
     expect(markup).toContain("Stop Fetching Prompts");
     expect(markup).toContain("Cycle Model");
-    expect(markup).toContain("Active");
+    expect(markup).toContain("Running");
     expect(markup).toContain("Benchmark: qwen3-8b-q4_k_m");
     expect(markup).toContain("Current VRAM Load");
     expect(markup).toContain("11,072 / 12,288 MiB");

@@ -937,16 +937,27 @@ class NodeControlState:
         tasks = scheduler.get("tasks") if isinstance(scheduler, dict) else {}
         benchmark_task = tasks.get("local_llm_benchmark_replay") if isinstance(tasks, dict) else {}
         running_rows = list(payload.get("running") or []) if isinstance(payload, dict) else []
+        rotation = payload.get("rotation") if isinstance(payload.get("rotation"), dict) else {}
+        rotation_activity_status = str(rotation.get("activity_status") or "").strip().lower()
         active = bool(
             running_rows
             or (isinstance(benchmark_task, dict) and (benchmark_task.get("running") or benchmark_task.get("status") == "running"))
+            or rotation_activity_status in {"running", "swapping"}
         )
+        if rotation_activity_status == "swapping":
+            status = "swapping"
+        elif active:
+            status = "running"
+        else:
+            status = "idle"
         payload["active_benchmark"] = {
             "active": active,
+            "status": status,
             "running_count": len(running_rows),
             "scheduler_running": bool(isinstance(benchmark_task, dict) and benchmark_task.get("running")),
             "scheduler_status": benchmark_task.get("status") if isinstance(benchmark_task, dict) else None,
-            "current_model_id": (payload.get("rotation") or {}).get("current_model_id") if isinstance(payload.get("rotation"), dict) else None,
+            "current_model_id": rotation.get("current_model_id"),
+            "activity_model_id": rotation.get("activity_model_id"),
             "running": running_rows,
         }
         payload["gpu_vram"] = self._gpu_vram_payload()

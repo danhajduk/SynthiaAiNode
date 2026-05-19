@@ -44,9 +44,11 @@ class LocalLLMBenchmarkRotationRunnerTests(unittest.IsolatedAsyncioTestCase):
                 encoding="utf-8",
             )
             commands = []
+            activity_statuses = []
 
             async def fake_runner(command, env):
                 commands.append({"command": command, "env": env})
+                activity_statuses.append(runner._activity_status)
                 return {"returncode": 0, "stdout": "ready", "stderr": ""}
 
             worker = _FakeWorker()
@@ -69,8 +71,10 @@ class LocalLLMBenchmarkRotationRunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(first["model_id"], "qwen3-8b-q4_k_m")
             self.assertEqual(second["model_id"], "gemma-3-12b-it-q4_k_m")
             self.assertEqual(status["current_model_id"], "live-model")
+            self.assertEqual(status["activity_status"], "idle")
             self.assertEqual([item["id"] for item in status["models"]], ["qwen3-8b-q4_k_m", "gemma-3-12b-it-q4_k_m"])
             self.assertEqual(worker.calls, [{"model_id": "qwen3-8b-q4_k_m", "limit": 7}, {"model_id": "gemma-3-12b-it-q4_k_m", "limit": 7}])
+            self.assertEqual(activity_statuses, ["swapping", "swapping"])
             self.assertEqual(commands[0]["command"], ["scripts/llamacpp-control.sh", "ready"])
             self.assertEqual(commands[0]["env"]["LLAMACPP_MODEL_HF"], "Qwen/Qwen3-8B-GGUF:Q4_K_M")
             self.assertEqual(commands[1]["env"]["LLAMACPP_MODEL_ALIAS"], "gemma-3-12b-it-q4_k_m")

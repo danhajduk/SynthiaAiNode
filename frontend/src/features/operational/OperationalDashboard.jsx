@@ -84,6 +84,14 @@ function formatMetricValue(value, suffix = "") {
   return `${numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
 }
 
+function formatBenchmarkStatus(status, active) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (["idle", "running", "swapping"].includes(normalized)) {
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+  return active ? "Running" : "Idle";
+}
+
 const LOCAL_LLM_DISPLAY_NAMES = {
   "qwen3-8b-q4_k_m": "Qwen 8B",
   "qwen3-14b-q4_k_m": "Qwen 14B",
@@ -370,6 +378,7 @@ function LocalLLMBenchmarkTable({
   );
   const modelIds = Array.from(new Set([...configuredModels, ...discoveredModels])).slice(0, 4);
   const currentModelId = summary?.rotation?.current_model_id || "unknown";
+  const activeBenchmarkStatus = formatBenchmarkStatus(summary?.active_benchmark?.status, summary?.active_benchmark?.active);
   const modelSummaries = buildLocalModelSummaries({ comparisons, modelIds });
 
   return (
@@ -423,7 +432,7 @@ function LocalLLMBenchmarkTable({
           <span>llama.cpp VRAM</span>
         </div>
         <div className="client-usage-metric-block">
-          <strong>{summary?.active_benchmark?.active ? "Active" : "Idle"}</strong>
+          <strong>{activeBenchmarkStatus}</strong>
           <span>
             Benchmark
             {summary?.active_benchmark?.current_model_id ? `: ${summary.active_benchmark.current_model_id}` : ""}

@@ -133,6 +133,7 @@ class NodeControlFastApiTests(unittest.TestCase):
             return {
                 "configured": True,
                 "current_model_id": "qwen3-8b-q4_k_m",
+                "activity_status": "running",
                 "models": [{"id": "qwen3-8b-q4_k_m"}, {"id": "qwen3-14b-q4_k_m"}],
             }
 
@@ -528,6 +529,7 @@ class NodeControlFastApiTests(unittest.TestCase):
             self.assertEqual(response.json()["comparisons"][0]["record_id"], "openai-test")
             self.assertEqual(response.json()["rotation"]["current_model_id"], "qwen3-8b-q4_k_m")
             self.assertTrue(response.json()["active_benchmark"]["active"])
+            self.assertEqual(response.json()["active_benchmark"]["status"], "running")
             self.assertEqual(response.json()["active_benchmark"]["running_count"], 1)
             self.assertEqual(response.json()["gpu_vram"]["memory_used_mib"], 10)
 
