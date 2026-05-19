@@ -47,7 +47,6 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 382: Persist OpenAI shadow benchmark records for local LLM comparison
 [TODO] Task 383: Add local LLM benchmark worker with per-model pending status
 [TODO] Task 384: Add scheduled llama.cpp model switching for queued benchmark replay
 [TODO] Task 385: Expose local LLM benchmark comparison API

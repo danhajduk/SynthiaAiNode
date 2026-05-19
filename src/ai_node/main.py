@@ -41,6 +41,10 @@ from ai_node.persistence.client_usage_store import (
     aggregate_provider_metrics,
     aggregate_provider_metrics_by_model,
 )
+from ai_node.persistence.local_llm_benchmark_store import (
+    DEFAULT_LOCAL_LLM_BENCHMARK_DB_PATH,
+    LocalLLMBenchmarkStore,
+)
 from ai_node.persistence.provider_capability_report_store import ProviderCapabilityReportStore
 from ai_node.providers.runtime_manager import ProviderRuntimeManager
 from ai_node.supervisor import SupervisorApiClient
@@ -308,6 +312,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=int(os.environ.get("SYNTHIA_OPERATIONAL_MQTT_RESTART_MAX_ATTEMPTS", "3")),
         help="Maximum automatic backend restart attempts for operational MQTT recovery",
     )
+    parser.add_argument(
+        "--local-llm-benchmark-db-path",
+        default=os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_DB_PATH", DEFAULT_LOCAL_LLM_BENCHMARK_DB_PATH),
+        help="Path to persisted OpenAI-to-local LLM benchmark records",
+    )
     return parser
 
 
@@ -355,6 +364,7 @@ def run(
     prompt_service_state_path: str = ".run/prompt_service_state.json",
     budget_state_path: str = ".run/budget_state.json",
     client_usage_db_path: str = ".run/client_usage.db",
+    local_llm_benchmark_db_path: str = DEFAULT_LOCAL_LLM_BENCHMARK_DB_PATH,
     provider_capability_refresh_interval_seconds: int = 14400,
     openai_pricing_catalog_path: str = "providers/openai/provider_model_pricing.json",
     openai_pricing_manual_config_path: str = "config/openai-pricing.yaml",
@@ -422,6 +432,10 @@ def run(
     )
     budget_state_store = BudgetStateStore(path=budget_state_path, logger=LOGGER)
     client_usage_store = ClientUsageStore(path=client_usage_db_path, logger=LOGGER)
+    local_llm_benchmark_store = LocalLLMBenchmarkStore(
+        path=local_llm_benchmark_db_path,
+        logger=LOGGER,
+    )
     operational_mqtt_recovery_store = OperationalMqttRecoveryStore(
         path=operational_mqtt_recovery_state_path,
         logger=LOGGER,
@@ -441,6 +455,10 @@ def run(
         pricing_manual_config_path=openai_pricing_manual_config_path,
         pricing_refresh_interval_seconds=openai_pricing_refresh_interval_seconds,
         pricing_stale_tolerance_seconds=openai_pricing_stale_tolerance_seconds,
+        local_llm_benchmark_store=local_llm_benchmark_store,
+        local_llm_benchmark_models=LocalLLMBenchmarkStore.configured_model_ids(
+            os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_MODELS")
+        ),
     )
     prompt_service_state_store = PromptServiceStateStore(path=prompt_service_state_path, logger=LOGGER)
     needs_usage_seed = (
@@ -772,6 +790,7 @@ def main() -> int:
         openai_pricing_manual_config_path=args.openai_pricing_manual_config_path,
         openai_pricing_refresh_interval_seconds=args.openai_pricing_refresh_interval_seconds,
         openai_pricing_stale_tolerance_seconds=args.openai_pricing_stale_tolerance_seconds,
+        local_llm_benchmark_db_path=args.local_llm_benchmark_db_path,
         finalize_poll_interval_seconds=args.finalize_poll_interval_seconds,
         operational_mqtt_recovery_state_path=args.operational_mqtt_recovery_state_path,
         operational_mqtt_health_check_interval_seconds=args.operational_mqtt_health_check_interval_seconds,

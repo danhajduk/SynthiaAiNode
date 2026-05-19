@@ -65,6 +65,8 @@ class ProviderRuntimeManager:
         provider_enabled_models_path: str = DEFAULT_PROVIDER_ENABLED_MODELS_PATH,
         node_capabilities_path: str = "runtime/node_capabilities.json",
         task_graph_path: str = "capabilities/task_graph.json",
+        local_llm_benchmark_store=None,
+        local_llm_benchmark_models: list[str] | None = None,
     ) -> None:
         self._logger = logger
         self._loader = ProviderConfigLoader(
@@ -99,6 +101,8 @@ class ProviderRuntimeManager:
             path=provider_enabled_models_path,
             logger=logger,
         )
+        self._local_llm_benchmark_store = local_llm_benchmark_store
+        self._local_llm_benchmark_models = list(local_llm_benchmark_models or [])
         self._node_capabilities_path = Path(node_capabilities_path)
         self._task_graph_path = task_graph_path
         self._router = ProviderExecutionRouter(
@@ -237,6 +241,7 @@ class ProviderRuntimeManager:
                     "success": True,
                 },
             )
+        self._record_local_llm_benchmark(request=request, response=response)
         return response
 
     async def execute_explicit(self, request: UnifiedExecutionRequest) -> UnifiedExecutionResponse:
@@ -357,6 +362,29 @@ class ProviderRuntimeManager:
             "generated_at": _iso_now(),
             "providers": providers,
         }
+
+    def _record_local_llm_benchmark(
+        self,
+        *,
+        request: UnifiedExecutionRequest,
+        response: UnifiedExecutionResponse,
+    ) -> None:
+        if self._local_llm_benchmark_store is None:
+            return
+        if str(response.provider_id or "").strip().lower() != "openai":
+            return
+        try:
+            self._local_llm_benchmark_store.record_openai_execution(
+                request=request,
+                response=response,
+                model_ids=self._local_llm_benchmark_models,
+            )
+        except Exception as exc:
+            if hasattr(self._logger, "warning"):
+                self._logger.warning(
+                    "[local-llm-benchmark-record-failed] %s",
+                    {"error": type(exc).__name__},
+                )
 
     def latest_models_payload(self, *, provider_id: str, limit: int = 3) -> dict:
         models = self._registry.list_models_by_provider(provider_id)

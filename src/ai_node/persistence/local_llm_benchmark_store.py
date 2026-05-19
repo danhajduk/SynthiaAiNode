@@ -1,0 +1,300 @@
+import hashlib
+import json
+import sqlite3
+from pathlib import Path
+from typing import Any
+
+from ai_node.providers.models import UnifiedExecutionRequest, UnifiedExecutionResponse
+from ai_node.time_utils import local_now_iso
+
+
+DEFAULT_LOCAL_LLM_BENCHMARK_DB_PATH = ".run/local_llm_benchmarks.db"
+DEFAULT_LOCAL_LLM_BENCHMARK_MODELS = [
+    "qwen3-8b-q4_k_m",
+    "qwen3-14b-q4_k_m",
+    "gemma-3-12b-it-q4_k_m",
+    "mistral-nemo-instruct-2407-q4_k_m",
+]
+
+
+def parse_structured_output_summary(output_text: str | None) -> dict[str, Any]:
+    normalized = str(output_text or "").strip()
+    if not normalized:
+        return {"label": None, "confidence": None}
+    try:
+        payload = json.loads(normalized)
+    except json.JSONDecodeError:
+        return {"label": None, "confidence": None}
+    if not isinstance(payload, dict):
+        return {"label": None, "confidence": None}
+    confidence = payload.get("confidence")
+    try:
+        confidence = float(confidence) if confidence is not None else None
+    except (TypeError, ValueError):
+        confidence = None
+    return {
+        "label": str(payload.get("label") or "").strip() or None,
+        "confidence": confidence,
+    }
+
+
+def _json_dumps(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _json_loads(value: str | None, fallback: Any) -> Any:
+    if value is None:
+        return fallback
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        return fallback
+
+
+class LocalLLMBenchmarkStore:
+    def __init__(self, *, path: str = DEFAULT_LOCAL_LLM_BENCHMARK_DB_PATH, logger=None) -> None:
+        self._path = Path(path)
+        self._logger = logger
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._initialize()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._path)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    def _initialize(self) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS benchmark_records (
+                    record_id TEXT PRIMARY KEY,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    source_provider TEXT NOT NULL,
+                    source_model TEXT NOT NULL,
+                    task_family TEXT NOT NULL,
+                    prompt_id TEXT,
+                    prompt_version TEXT,
+                    trace_id TEXT,
+                    request_payload_json TEXT NOT NULL,
+                    source_response_json TEXT NOT NULL,
+                    source_output_text TEXT,
+                    source_label TEXT,
+                    source_confidence REAL,
+                    source_usage_json TEXT NOT NULL,
+                    source_latency_ms REAL,
+                    source_cost_usd REAL,
+                    source_raw_provider_response_ref TEXT,
+                    input_snippet TEXT
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS benchmark_model_results (
+                    record_id TEXT NOT NULL,
+                    model_id TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    started_at TEXT,
+                    completed_at TEXT,
+                    latency_ms REAL,
+                    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+                    completion_tokens INTEGER NOT NULL DEFAULT 0,
+                    total_tokens INTEGER NOT NULL DEFAULT 0,
+                    output_text TEXT,
+                    label TEXT,
+                    confidence REAL,
+                    error TEXT,
+                    vram_used_mib REAL,
+                    vram_delta_mib REAL,
+                    load_seconds REAL,
+                    PRIMARY KEY (record_id, model_id),
+                    FOREIGN KEY (record_id) REFERENCES benchmark_records(record_id) ON DELETE CASCADE
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_benchmark_model_status ON benchmark_model_results(status, model_id, created_at)"
+            )
+
+    @staticmethod
+    def configured_model_ids(value: str | None = None) -> list[str]:
+        raw = str(value or "").strip()
+        if not raw:
+            return list(DEFAULT_LOCAL_LLM_BENCHMARK_MODELS)
+        model_ids = [item.strip() for item in raw.split(",") if item.strip()]
+        deduped: list[str] = []
+        for model_id in model_ids:
+            if model_id not in deduped:
+                deduped.append(model_id)
+        return deduped or list(DEFAULT_LOCAL_LLM_BENCHMARK_MODELS)
+
+    def record_openai_execution(
+        self,
+        *,
+        request: UnifiedExecutionRequest,
+        response: UnifiedExecutionResponse,
+        model_ids: list[str] | None = None,
+    ) -> str | None:
+        if str(response.provider_id or "").strip().lower() != "openai":
+            return None
+        now = local_now_iso()
+        request_payload = request.model_dump(mode="json")
+        response_payload = response.model_dump(mode="json")
+        prompt_text = self._request_input_text(request_payload)
+        identity_payload = {
+            "created_at": now,
+            "provider": response.provider_id,
+            "model": response.model_id,
+            "request": request_payload,
+            "response_ref": response.raw_provider_response_ref,
+        }
+        digest = hashlib.sha256(_json_dumps(identity_payload).encode("utf-8")).hexdigest()[:24]
+        record_id = f"openai-{digest}"
+        output_summary = parse_structured_output_summary(response.output_text)
+        usage_payload = response.usage.model_dump(mode="json")
+        metadata = request.metadata if isinstance(request.metadata, dict) else {}
+        target_model_ids = model_ids or list(DEFAULT_LOCAL_LLM_BENCHMARK_MODELS)
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO benchmark_records(
+                    record_id, created_at, updated_at, source_provider, source_model,
+                    task_family, prompt_id, prompt_version, trace_id, request_payload_json,
+                    source_response_json, source_output_text, source_label, source_confidence,
+                    source_usage_json, source_latency_ms, source_cost_usd, source_raw_provider_response_ref,
+                    input_snippet
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(record_id) DO NOTHING
+                """,
+                (
+                    record_id,
+                    now,
+                    now,
+                    str(response.provider_id or "").strip(),
+                    str(response.model_id or "").strip(),
+                    str(request.task_family or "").strip(),
+                    str(metadata.get("prompt_id") or "").strip() or None,
+                    str(metadata.get("prompt_version") or "").strip() or None,
+                    str(metadata.get("trace_id") or "").strip() or None,
+                    _json_dumps(request_payload),
+                    _json_dumps(response_payload),
+                    response.output_text,
+                    output_summary["label"],
+                    output_summary["confidence"],
+                    _json_dumps(usage_payload),
+                    float(response.latency_ms or 0.0),
+                    float(response.estimated_cost or 0.0) if response.estimated_cost is not None else None,
+                    response.raw_provider_response_ref,
+                    prompt_text[:500],
+                ),
+            )
+            for model_id in target_model_ids:
+                normalized_model_id = str(model_id or "").strip()
+                if not normalized_model_id:
+                    continue
+                connection.execute(
+                    """
+                    INSERT INTO benchmark_model_results(record_id, model_id, status, created_at, updated_at)
+                    VALUES (?, ?, 'pending', ?, ?)
+                    ON CONFLICT(record_id, model_id) DO NOTHING
+                    """,
+                    (record_id, normalized_model_id, now, now),
+                )
+        return record_id
+
+    def summary_payload(self, *, limit: int = 25) -> dict:
+        with self._connect() as connection:
+            record_rows = connection.execute(
+                """
+                SELECT * FROM benchmark_records
+                ORDER BY created_at DESC
+                LIMIT ?
+                """,
+                (max(int(limit), 0),),
+            ).fetchall()
+            result_rows = connection.execute(
+                """
+                SELECT * FROM benchmark_model_results
+                WHERE record_id IN ({})
+                ORDER BY model_id
+                """.format(",".join("?" for _ in record_rows) or "NULL"),
+                tuple(row["record_id"] for row in record_rows),
+            ).fetchall() if record_rows else []
+            status_rows = connection.execute(
+                """
+                SELECT status, COUNT(*) AS count
+                FROM benchmark_model_results
+                GROUP BY status
+                """
+            ).fetchall()
+
+        results_by_record: dict[str, list[dict]] = {}
+        for row in result_rows:
+            results_by_record.setdefault(str(row["record_id"]), []).append(self._result_row_payload(row))
+        return {
+            "configured": True,
+            "path": str(self._path),
+            "generated_at": local_now_iso(),
+            "status_counts": {str(row["status"]): int(row["count"] or 0) for row in status_rows},
+            "comparisons": [
+                {
+                    "record_id": str(row["record_id"]),
+                    "created_at": row["created_at"],
+                    "task_family": row["task_family"],
+                    "prompt_id": row["prompt_id"],
+                    "prompt_version": row["prompt_version"],
+                    "input_snippet": row["input_snippet"],
+                    "openai": {
+                        "provider_id": row["source_provider"],
+                        "model_id": row["source_model"],
+                        "latency_ms": row["source_latency_ms"],
+                        "estimated_cost": row["source_cost_usd"],
+                        "usage": _json_loads(row["source_usage_json"], {}),
+                        "output_text": row["source_output_text"],
+                        "label": row["source_label"],
+                        "confidence": row["source_confidence"],
+                    },
+                    "local_results": results_by_record.get(str(row["record_id"]), []),
+                }
+                for row in record_rows
+            ],
+        }
+
+    @staticmethod
+    def _request_input_text(request_payload: dict) -> str:
+        prompt = str(request_payload.get("prompt") or "").strip()
+        if prompt:
+            return prompt
+        messages = request_payload.get("messages")
+        if isinstance(messages, list):
+            parts = [
+                str(item.get("content") or "").strip()
+                for item in messages
+                if isinstance(item, dict) and str(item.get("content") or "").strip()
+            ]
+            return "\n".join(parts)
+        return ""
+
+    @staticmethod
+    def _result_row_payload(row: sqlite3.Row) -> dict:
+        return {
+            "model_id": row["model_id"],
+            "status": row["status"],
+            "started_at": row["started_at"],
+            "completed_at": row["completed_at"],
+            "latency_ms": row["latency_ms"],
+            "prompt_tokens": int(row["prompt_tokens"] or 0),
+            "completion_tokens": int(row["completion_tokens"] or 0),
+            "total_tokens": int(row["total_tokens"] or 0),
+            "output_text": row["output_text"],
+            "label": row["label"],
+            "confidence": row["confidence"],
+            "error": row["error"],
+            "vram_used_mib": row["vram_used_mib"],
+            "vram_delta_mib": row["vram_delta_mib"],
+            "load_seconds": row["load_seconds"],
+        }

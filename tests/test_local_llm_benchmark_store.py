@@ -1,0 +1,75 @@
+import logging
+import tempfile
+import unittest
+from pathlib import Path
+
+from ai_node.persistence.local_llm_benchmark_store import LocalLLMBenchmarkStore, parse_structured_output_summary
+from ai_node.providers.models import UnifiedExecutionRequest, UnifiedExecutionResponse, UnifiedExecutionUsage
+
+
+class LocalLLMBenchmarkStoreTests(unittest.TestCase):
+    def test_records_openai_execution_and_pending_local_models(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalLLMBenchmarkStore(
+                path=str(Path(tmp) / "local_llm_benchmarks.db"),
+                logger=logging.getLogger("local-llm-benchmark-test"),
+            )
+
+            record_id = store.record_openai_execution(
+                request=UnifiedExecutionRequest(
+                    task_family="task.classification",
+                    prompt="Classify this email",
+                    requested_provider="openai",
+                    requested_model="gpt-5.4-nano",
+                    metadata={
+                        "prompt_id": "prompt.email.classifier",
+                        "prompt_version": "3",
+                        "trace_id": "trace-1",
+                    },
+                ),
+                response=UnifiedExecutionResponse(
+                    provider_id="openai",
+                    model_id="gpt-5.4-nano",
+                    output_text='{"label":"action_required","confidence":0.62}',
+                    usage=UnifiedExecutionUsage(prompt_tokens=10, completion_tokens=4, total_tokens=14),
+                    latency_ms=123.4,
+                    estimated_cost=0.00001,
+                ),
+                model_ids=["qwen3-8b-q4_k_m", "gemma-3-12b-it-q4_k_m"],
+            )
+
+            payload = store.summary_payload()
+
+            self.assertTrue(record_id.startswith("openai-"))
+            self.assertEqual(payload["status_counts"], {"pending": 2})
+            self.assertEqual(len(payload["comparisons"]), 1)
+            comparison = payload["comparisons"][0]
+            self.assertEqual(comparison["prompt_id"], "prompt.email.classifier")
+            self.assertEqual(comparison["openai"]["label"], "action_required")
+            self.assertEqual(comparison["openai"]["usage"]["total_tokens"], 14)
+            self.assertEqual(
+                [item["model_id"] for item in comparison["local_results"]],
+                ["gemma-3-12b-it-q4_k_m", "qwen3-8b-q4_k_m"],
+            )
+
+    def test_ignores_non_openai_execution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = LocalLLMBenchmarkStore(
+                path=str(Path(tmp) / "local_llm_benchmarks.db"),
+                logger=logging.getLogger("local-llm-benchmark-test"),
+            )
+
+            record_id = store.record_openai_execution(
+                request=UnifiedExecutionRequest(task_family="task.classification", prompt="hello"),
+                response=UnifiedExecutionResponse(provider_id="local", model_id="qwen", output_text="{}"),
+            )
+
+            self.assertIsNone(record_id)
+            self.assertEqual(store.summary_payload()["comparisons"], [])
+
+    def test_parse_structured_output_summary_is_best_effort(self):
+        self.assertEqual(
+            parse_structured_output_summary('{"label":"shipment","confidence":"0.95"}'),
+            {"label": "shipment", "confidence": 0.95},
+        )
+        self.assertEqual(parse_structured_output_summary("plain text"), {"label": None, "confidence": None})
