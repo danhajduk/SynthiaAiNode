@@ -69,5 +69,5 @@ export function providerBudgetTone(summary) {
 }
 
 export function formatProviderBudgetPill(summary) {
-  return `${formatProviderLabel(summary?.providerId)} ${formatUsdExact(summary?.remainingCostUsdExact)}/${formatUsdExact(summary?.budgetLimitUsdExact)} ${String(summary?.period || "monthly").toLowerCase()} · spent ${formatUsdExact(summary?.usedCostUsdExact)}`;
+  return `${formatProviderLabel(summary?.providerId)} spent ${formatUsdExact(summary?.usedCostUsdExact)}/${formatUsdExact(summary?.budgetLimitUsdExact)} ${String(summary?.period || "monthly").toLowerCase()} · left ${formatUsdExact(summary?.remainingCostUsdExact)}`;
 }

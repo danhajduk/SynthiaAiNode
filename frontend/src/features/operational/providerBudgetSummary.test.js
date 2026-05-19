@@ -59,6 +59,6 @@ describe("provider budget summary", () => {
         usedCostUsdExact: 10,
         period: "weekly",
       })
-    ).toBe("OpenAI $10.00/$20.00 weekly · spent $10.00");
+    ).toBe("OpenAI spent $10.00/$20.00 weekly · left $10.00");
   });
 });
