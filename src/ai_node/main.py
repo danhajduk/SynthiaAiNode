@@ -23,6 +23,8 @@ from ai_node.runtime.bootstrap_timeout import BootstrapConnectTimeoutMonitor
 from ai_node.runtime.budget_manager import BudgetManager
 from ai_node.runtime.capability_declaration_runner import CapabilityDeclarationRunner
 from ai_node.runtime.internal_scheduler import InternalScheduler
+from ai_node.runtime.local_llm_benchmark_rotation import LocalLLMBenchmarkRotationRunner
+from ai_node.runtime.local_llm_benchmark_worker import LocalLLMBenchmarkWorker
 from ai_node.runtime.operational_mqtt_recovery_store import OperationalMqttRecoveryStore
 from ai_node.runtime.node_control_api import NodeControlState, create_node_control_app
 from ai_node.runtime.onboarding_runtime import OnboardingRuntime
@@ -317,6 +319,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_DB_PATH", DEFAULT_LOCAL_LLM_BENCHMARK_DB_PATH),
         help="Path to persisted OpenAI-to-local LLM benchmark records",
     )
+    parser.add_argument(
+        "--local-llm-benchmark-interval-seconds",
+        type=int,
+        default=int(os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_INTERVAL_SECONDS", "900")),
+        help="Interval for rotating the loaded local LLM and replaying pending OpenAI benchmark prompts",
+    )
     return parser
 
 
@@ -365,6 +373,7 @@ def run(
     budget_state_path: str = ".run/budget_state.json",
     client_usage_db_path: str = ".run/client_usage.db",
     local_llm_benchmark_db_path: str = DEFAULT_LOCAL_LLM_BENCHMARK_DB_PATH,
+    local_llm_benchmark_interval_seconds: int = 900,
     provider_capability_refresh_interval_seconds: int = 14400,
     openai_pricing_catalog_path: str = "providers/openai/provider_model_pricing.json",
     openai_pricing_manual_config_path: str = "config/openai-pricing.yaml",
@@ -435,6 +444,17 @@ def run(
     local_llm_benchmark_store = LocalLLMBenchmarkStore(
         path=local_llm_benchmark_db_path,
         logger=LOGGER,
+    )
+    local_llm_benchmark_worker = LocalLLMBenchmarkWorker(
+        store=local_llm_benchmark_store,
+        logger=LOGGER,
+    )
+    local_llm_benchmark_rotation_runner = LocalLLMBenchmarkRotationRunner(
+        worker=local_llm_benchmark_worker,
+        logger=LOGGER,
+        control_script=os.environ.get("SYNTHIA_LOCAL_LLM_CONTROL_SCRIPT", "scripts/llamacpp-control.sh"),
+        model_ids=LocalLLMBenchmarkStore.configured_model_ids(os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_MODELS")),
+        batch_limit=int(os.environ.get("SYNTHIA_LOCAL_LLM_BENCHMARK_BATCH_LIMIT", "25")),
     )
     operational_mqtt_recovery_store = OperationalMqttRecoveryStore(
         path=operational_mqtt_recovery_state_path,
@@ -720,6 +740,8 @@ def run(
         service_manager=service_manager,
         internal_scheduler=internal_scheduler,
         supervisor_client=supervisor_client,
+        local_llm_benchmark_runner=local_llm_benchmark_rotation_runner,
+        local_llm_benchmark_interval_seconds=local_llm_benchmark_interval_seconds,
         node_hostname=resolved_node_hostname,
         node_api_base_url=resolved_node_api_base_url,
         node_ui_endpoint=resolved_node_ui_endpoint,
@@ -791,6 +813,7 @@ def main() -> int:
         openai_pricing_refresh_interval_seconds=args.openai_pricing_refresh_interval_seconds,
         openai_pricing_stale_tolerance_seconds=args.openai_pricing_stale_tolerance_seconds,
         local_llm_benchmark_db_path=args.local_llm_benchmark_db_path,
+        local_llm_benchmark_interval_seconds=args.local_llm_benchmark_interval_seconds,
         finalize_poll_interval_seconds=args.finalize_poll_interval_seconds,
         operational_mqtt_recovery_state_path=args.operational_mqtt_recovery_state_path,
         operational_mqtt_health_check_interval_seconds=args.operational_mqtt_health_check_interval_seconds,

@@ -47,6 +47,5 @@ Standards reference:
 
 Do not edit above this line:
 #######################################################################
-[TODO] Task 384: Add scheduled llama.cpp model switching for queued benchmark replay
 [TODO] Task 385: Expose local LLM benchmark comparison API
 [TODO] Task 386: Add local LLM benchmark comparison table to the node UI

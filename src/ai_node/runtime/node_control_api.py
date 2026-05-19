@@ -272,6 +272,8 @@ class NodeControlState:
         task_execution_service=None,
         internal_scheduler=None,
         supervisor_client=None,
+        local_llm_benchmark_runner=None,
+        local_llm_benchmark_interval_seconds: int = 900,
         node_hostname: str | None = None,
         node_api_base_url: str | None = None,
         node_ui_endpoint: str | None = None,
@@ -313,6 +315,8 @@ class NodeControlState:
         self._task_execution_service = task_execution_service
         self._internal_scheduler = internal_scheduler or InternalScheduler(logger=logger)
         self._supervisor_client = supervisor_client or SupervisorApiClient()
+        self._local_llm_benchmark_runner = local_llm_benchmark_runner
+        self._local_llm_benchmark_interval_seconds = max(int(local_llm_benchmark_interval_seconds), 60)
         self._node_hostname = node_hostname
         self._node_api_base_url = node_api_base_url
         self._node_ui_endpoint = node_ui_endpoint
@@ -2126,6 +2130,15 @@ class NodeControlState:
             task_kind="local_recurring",
             readiness_critical=False,
         )
+        self._internal_scheduler.register_interval_task(
+            task_id="local_llm_benchmark_replay",
+            display_name="Local LLM Benchmark Replay",
+            interval_seconds=self._local_llm_benchmark_interval_seconds,
+            schedule_name="interval_seconds",
+            schedule_detail=f"Every {self._local_llm_benchmark_interval_seconds} seconds",
+            task_kind="local_recurring",
+            readiness_critical=False,
+        )
         self._sync_operational_mqtt_health_schedule()
 
     def _operational_mqtt_health_schedule_definition(self) -> dict:
@@ -2266,6 +2279,12 @@ class NodeControlState:
                 coroutine_factory=self._operational_mqtt_health_job_once,
                 initial_delay_seconds=0,
             )
+            if self._local_llm_benchmark_runner is not None:
+                self._internal_scheduler.start_interval_task(
+                    task_id="local_llm_benchmark_replay",
+                    coroutine_factory=self._local_llm_benchmark_job_once,
+                    initial_delay_seconds=self._local_llm_benchmark_interval_seconds,
+                )
 
     def _notify_back_online(self) -> None:
         if self._notification_service is None or not hasattr(self._notification_service, "notify"):
@@ -2374,6 +2393,14 @@ class NodeControlState:
         self._supervisor_last_error = None
         self._supervisor_last_seen = local_now_iso()
         return {"status": "ok", "supervisor": {"last_seen_at": self._supervisor_last_seen}}
+
+    async def _local_llm_benchmark_job_once(self) -> dict:
+        if self._local_llm_benchmark_runner is None:
+            return {"status": "skipped", "reason": "local_llm_benchmark_runner_not_configured"}
+        result = await self._local_llm_benchmark_runner.run_once()
+        if hasattr(self._logger, "info"):
+            self._logger.info("[local-llm-benchmark-job] %s", result)
+        return result
 
     async def _operational_mqtt_health_job_once(self) -> dict | None:
         result = await self.check_operational_mqtt_health_once()
