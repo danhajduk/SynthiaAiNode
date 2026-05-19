@@ -484,3 +484,4 @@ Task 915: Store and surface local LLM benchmark results - Completed on 05/18/202
 Task 382: Persist OpenAI shadow benchmark records for local LLM comparison - Completed on 05/19/2026 14:11
 Task 383: Add local LLM benchmark worker with per-model pending status - Completed on 05/19/2026 14:13
 Task 384: Add scheduled llama.cpp model switching for queued benchmark replay - Completed on 05/19/2026 14:16
+Task 385: Expose local LLM benchmark comparison API - Completed on 05/19/2026 14:17

@@ -110,6 +110,14 @@ class NodeControlFastApiTests(unittest.TestCase):
         def save(self, payload):
             self.payload = payload
 
+    class _FakeLocalLLMBenchmarkStore:
+        def summary_payload(self):
+            return {
+                "configured": True,
+                "status_counts": {"pending": 1},
+                "comparisons": [{"record_id": "openai-test", "local_results": []}],
+            }
+
     class _FakeCapabilityRunner:
         def __init__(self):
             self.workflow_notifications = []
@@ -477,6 +485,24 @@ class NodeControlFastApiTests(unittest.TestCase):
                 "generated_at": "2026-03-13T00:00:00Z",
                 "source": "node_capabilities",
             }
+
+    def test_local_llm_benchmark_comparison_endpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = NodeControlState(
+                lifecycle=NodeLifecycle(logger=logging.getLogger("node-control-fastapi-test")),
+                config_path=str(Path(tmp) / "bootstrap_config.json"),
+                logger=logging.getLogger("node-control-fastapi-test"),
+                local_llm_benchmark_store=self._FakeLocalLLMBenchmarkStore(),
+            )
+            app = create_node_control_app(state=state, logger=logging.getLogger("node-control-fastapi-test"))
+            client = TestClient(app)
+
+            response = client.get("/api/benchmarks/local-llm/comparisons")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.json()["configured"])
+            self.assertEqual(response.json()["status_counts"]["pending"], 1)
+            self.assertEqual(response.json()["comparisons"][0]["record_id"], "openai-test")
 
     def test_status_and_onboarding_endpoints(self):
         with tempfile.TemporaryDirectory() as tmp:

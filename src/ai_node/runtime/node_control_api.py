@@ -262,6 +262,7 @@ class NodeControlState:
         prompt_service_state_store=None,
         budget_state_store=None,
         client_usage_store=None,
+        local_llm_benchmark_store=None,
         trust_status_client=None,
         budget_declaration_client=None,
         execution_gateway=None,
@@ -305,6 +306,7 @@ class NodeControlState:
         self._prompt_registry = None
         self._budget_state_store = budget_state_store
         self._client_usage_store = client_usage_store
+        self._local_llm_benchmark_store = local_llm_benchmark_store
         self._trust_status_client = trust_status_client or TrustStatusClient(logger=logger)
         self._budget_declaration_client = budget_declaration_client or BudgetDeclarationClient(logger=logger)
         self._execution_gateway = execution_gateway or ExecutionGateway()
@@ -923,6 +925,11 @@ class NodeControlState:
             return {"configured": False, "current_month": local_now_iso()[:7], "clients": []}
         payload = self._client_usage_store.summary_payload()
         return self._attach_client_grants(payload=payload)
+
+    def local_llm_benchmark_comparison_payload(self) -> dict:
+        if self._local_llm_benchmark_store is None or not hasattr(self._local_llm_benchmark_store, "summary_payload"):
+            return {"configured": False, "comparisons": [], "status_counts": {}}
+        return self._local_llm_benchmark_store.summary_payload()
 
     def _attach_client_grants(self, *, payload: dict) -> dict:
         clients = list(payload.get("clients") or []) if isinstance(payload, dict) else []
@@ -3307,6 +3314,10 @@ def create_node_control_app(*, state: NodeControlState, logger) -> FastAPI:
     @app.get("/api/usage/clients")
     def get_client_usage():
         return state.client_usage_payload()
+
+    @app.get("/api/benchmarks/local-llm/comparisons")
+    def get_local_llm_benchmark_comparisons():
+        return state.local_llm_benchmark_comparison_payload()
 
     @app.post("/api/budgets/declare")
     async def post_budget_declare(payload: BudgetDeclarationRequest):

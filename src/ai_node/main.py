@@ -733,6 +733,7 @@ def run(
         prompt_service_state_store=prompt_service_state_store,
         budget_state_store=budget_state_store,
         client_usage_store=client_usage_store,
+        local_llm_benchmark_store=local_llm_benchmark_store,
         trust_status_client=trust_status_client,
         provider_runtime_manager=provider_runtime_manager,
         budget_manager=budget_manager,
