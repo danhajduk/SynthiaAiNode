@@ -10,6 +10,14 @@
       "ctx_size": 4096
     },
     {
+      "id": "qwen3-14b-q4_k_m",
+      "repo": "Qwen/Qwen3-14B-GGUF",
+      "file": "qwen3-14b-q4_k_m.gguf",
+      "quantization": "Q4_K_M",
+      "role": "strong_reasoning_classification",
+      "ctx_size": 4096
+    },
+    {
       "id": "qwen3-4b-q5_k_m",
       "repo": "Qwen/Qwen3-4B-GGUF",
       "file": "qwen3-4b-q5_k_m.gguf",
