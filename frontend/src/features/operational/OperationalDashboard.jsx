@@ -71,6 +71,127 @@ function telemetryFreshnessFromAge(ageSeconds, connected) {
   return "inactive";
 }
 
+function formatMetricValue(value, suffix = "") {
+  if (value === null || value === undefined || value === "") {
+    return "pending";
+  }
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return String(value);
+  }
+  return `${numberValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`;
+}
+
+function LocalLLMBenchmarkTable({ summary }) {
+  const comparisons = Array.isArray(summary?.comparisons) ? summary.comparisons : [];
+  const rows = comparisons.flatMap((comparison) => {
+    const localResults = Array.isArray(comparison?.local_results) ? comparison.local_results : [];
+    const base = {
+      recordId: comparison?.record_id,
+      prompt: comparison?.prompt_id || comparison?.task_family || "unattributed",
+      openaiModel: comparison?.openai?.model_id || "openai",
+      openaiLabel: comparison?.openai?.label || "none",
+      openaiTokens: comparison?.openai?.usage?.total_tokens,
+      openaiLatency: comparison?.openai?.latency_ms,
+      snippet: comparison?.input_snippet || "",
+    };
+    if (!localResults.length) {
+      return [{ ...base, localModel: "pending", status: "pending" }];
+    }
+    return localResults.map((result) => ({
+      ...base,
+      localModel: result?.model_id || "local",
+      status: result?.status || "unknown",
+      localLabel: result?.label || "none",
+      localTokens: result?.total_tokens,
+      localLatency: result?.latency_ms,
+      vram: result?.vram_delta_mib ?? result?.vram_used_mib,
+      error: result?.error,
+    }));
+  });
+
+  return (
+    <article className="card operational-card-full-span">
+      <CardHeader title="Local LLM Benchmarks" subtitle="OpenAI calls replayed against the local model rotation." />
+      <div className="client-usage-summary-grid">
+        <div className="client-usage-metric-block">
+          <strong>{formatMetricValue(summary?.status_counts?.pending || 0)}</strong>
+          <span>Pending</span>
+        </div>
+        <div className="client-usage-metric-block">
+          <strong>{formatMetricValue(summary?.status_counts?.completed || 0)}</strong>
+          <span>Completed</span>
+        </div>
+        <div className="client-usage-metric-block">
+          <strong>{formatMetricValue(summary?.status_counts?.failed || 0)}</strong>
+          <span>Failed</span>
+        </div>
+      </div>
+      <div className="client-usage-table-card">
+        <div className="client-usage-table-wrap">
+          <table className="client-usage-table local-llm-benchmark-table">
+            <thead>
+              <tr>
+                <th>Prompt</th>
+                <th>OpenAI</th>
+                <th>Local Model</th>
+                <th>Status</th>
+                <th>Label</th>
+                <th>Tokens</th>
+                <th>Latency</th>
+                <th>VRAM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length ? (
+                rows.map((row) => (
+                  <tr key={`${row.recordId}-${row.localModel}`}>
+                    <td>
+                      <code>{row.prompt}</code>
+                      {row.snippet ? <span className="muted tiny benchmark-snippet">{row.snippet}</span> : null}
+                    </td>
+                    <td>
+                      <code>{row.openaiModel}</code>
+                    </td>
+                    <td>
+                      <code>{row.localModel}</code>
+                    </td>
+                    <td>
+                      <StageBadge value={row.status} />
+                      {row.error ? <span className="error tiny benchmark-snippet">{row.error}</span> : null}
+                    </td>
+                    <td>
+                      <code>{row.openaiLabel}</code>
+                      <span className="muted tiny benchmark-snippet">{row.localLabel || "pending"}</span>
+                    </td>
+                    <td>
+                      <code>{formatMetricValue(row.openaiTokens)}</code>
+                      <span className="muted tiny benchmark-snippet">{formatMetricValue(row.localTokens)}</span>
+                    </td>
+                    <td>
+                      <code>{formatMetricValue(row.openaiLatency, " ms")}</code>
+                      <span className="muted tiny benchmark-snippet">{formatMetricValue(row.localLatency, " ms")}</span>
+                    </td>
+                    <td>
+                      <code>{formatMetricValue(row.vram, " MiB")}</code>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className="muted">
+                    No OpenAI benchmark records have been captured yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function OperationalDashboard({
   currentSection,
   sections = [],
@@ -87,6 +208,7 @@ export function OperationalDashboard({
   activityItems = [],
   clientCostItems = [],
   clientUsageMonth = "",
+  localLlmBenchmarkSummary = null,
   governanceStatus = null,
   scheduledTasksProps = null,
   onboardingSteps = [],
@@ -198,6 +320,10 @@ export function OperationalDashboard({
             governanceStatus={governanceStatus}
             className="operational-card-full-span"
           />
+        ) : null}
+
+        {currentSection === "benchmarks" ? (
+          <LocalLLMBenchmarkTable summary={localLlmBenchmarkSummary} />
         ) : null}
 
         {currentSection === "scheduled" ? (

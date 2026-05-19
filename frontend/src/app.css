@@ -621,6 +621,21 @@
   white-space: nowrap;
 }
 
+.local-llm-benchmark-table {
+  min-width: 980px;
+}
+
+.local-llm-benchmark-table td {
+  vertical-align: top;
+}
+
+.benchmark-snippet {
+  display: block;
+  margin-top: 4px;
+  max-width: 260px;
+  white-space: normal;
+}
+
 .client-grant-summary-item strong,
 .client-grant-summary-item code {
   min-width: 0;

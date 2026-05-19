@@ -148,6 +148,7 @@ export default function App() {
   const [savingPopupPricing, setSavingPopupPricing] = useState(false);
   const [capabilityDiagnostics, setCapabilityDiagnostics] = useState(null);
   const [clientUsageSummary, setClientUsageSummary] = useState({ currentMonth: "", clients: [] });
+  const [localLlmBenchmarkSummary, setLocalLlmBenchmarkSummary] = useState({ comparisons: [], status_counts: {} });
   const [runningAdminAction, setRunningAdminAction] = useState("");
   const [adminActionState, setAdminActionState] = useState("");
   const [uiState, setUiState] = useState(() =>
@@ -178,6 +179,7 @@ export default function App() {
       servicesResult,
       budgetResult,
       clientUsageResult,
+      localLlmBenchmarkResult,
       promptServicesResult,
       capabilityDiagnosticsResult,
     ] = await Promise.allSettled([
@@ -196,6 +198,7 @@ export default function App() {
       apiGet("/api/services/status"),
       apiGet("/api/budgets/state"),
       apiGet("/api/usage/clients"),
+      apiGet("/api/benchmarks/local-llm/comparisons"),
       apiGet("/api/prompts/services"),
       apiAdminGet("/api/capabilities/diagnostics"),
     ]);
@@ -235,6 +238,7 @@ export default function App() {
     const servicePayload = servicesResult.status === "fulfilled" ? servicesResult.value : null;
     const budgetPayload = budgetResult.status === "fulfilled" ? budgetResult.value : null;
     const clientUsagePayload = clientUsageResult.status === "fulfilled" ? clientUsageResult.value : null;
+    const localLlmBenchmarkPayload = localLlmBenchmarkResult.status === "fulfilled" ? localLlmBenchmarkResult.value : null;
     const promptServicesPayload = promptServicesResult.status === "fulfilled" ? promptServicesResult.value : null;
     const capabilityDiagnosticsPayload = capabilityDiagnosticsResult.status === "fulfilled" ? capabilityDiagnosticsResult.value : null;
     const partialFailures = [];
@@ -280,6 +284,9 @@ export default function App() {
     if (clientUsageResult.status !== "fulfilled") {
       partialFailures.push("client_usage_unavailable");
     }
+    if (localLlmBenchmarkResult.status !== "fulfilled") {
+      partialFailures.push("local_llm_benchmark_unavailable");
+    }
     if (promptServicesResult.status !== "fulfilled") {
       partialFailures.push("prompt_services_unavailable");
     }
@@ -306,6 +313,7 @@ export default function App() {
     setResolvedNodeCapabilities(nodeCapabilitiesPayload);
     setCapabilityDiagnostics(capabilityDiagnosticsPayload);
     setClientUsageSummary(normalizeClientUsagePayload(clientUsagePayload, promptServicesPayload));
+    setLocalLlmBenchmarkSummary(localLlmBenchmarkPayload || { comparisons: [], status_counts: {} });
     setGovernanceStatusPayload(governancePayload);
     setBudgetStatePayload(budgetPayload);
     setProviderBudgetSummaries(summarizeProviderBudgets({ providerConfig: providerPayload, budgetState: budgetPayload }));
@@ -1501,6 +1509,7 @@ export default function App() {
     ["runtime", "Runtime"],
     ["activity", "Activity"],
     ["clients", "Clients"],
+    ["benchmarks", "Benchmarks"],
     ["scheduled", "Scheduled Tasks"],
     ["diagnostics", "Diagnostics"],
   ].map(([id, label]) => ({
@@ -1655,6 +1664,7 @@ export default function App() {
     activityItems: recentActivityItems,
     clientCostItems,
     clientUsageMonth,
+    localLlmBenchmarkSummary,
     governanceStatus: governanceStatusPayload,
     scheduledTasksProps: {
       scheduler: capabilityDiagnostics?.internal_scheduler || null,

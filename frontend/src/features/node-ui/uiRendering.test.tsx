@@ -13,6 +13,7 @@ function buildOperationalProps(overrides = {}) {
       { id: "overview", label: "Overview", onClick: () => {} },
       { id: "scheduled", label: "Scheduled Tasks", onClick: () => {} },
       { id: "clients", label: "Clients", onClick: () => {} },
+      { id: "benchmarks", label: "Benchmarks", onClick: () => {} },
       { id: "diagnostics", label: "Diagnostics", onClick: () => {} },
     ],
     healthStripProps: {
@@ -82,6 +83,33 @@ function buildOperationalProps(overrides = {}) {
     activityItems: [{ label: "Last declaration", value: "accepted" }],
     clientCostItems: [],
     clientUsageMonth: "2026-04",
+    localLlmBenchmarkSummary: {
+      status_counts: { pending: 1, completed: 1, failed: 0 },
+      comparisons: [
+        {
+          record_id: "openai-test",
+          task_family: "task.classification",
+          prompt_id: "prompt.email.classifier",
+          input_snippet: "Check in reminder",
+          openai: {
+            model_id: "gpt-5.4-nano",
+            label: "action_required",
+            usage: { total_tokens: 140 },
+            latency_ms: 1200,
+          },
+          local_results: [
+            {
+              model_id: "qwen3-8b-q4_k_m",
+              status: "completed",
+              label: "system",
+              total_tokens: 132,
+              latency_ms: 3200,
+              vram_delta_mib: 5456,
+            },
+          ],
+        },
+      ],
+    },
     governanceStatus: {
       configured: true,
       status: {
@@ -234,6 +262,18 @@ describe("OperationalDashboard", () => {
     expect(markup).toContain("Type");
     expect(markup).toContain("Every 10 seconds");
     expect(markup).not.toContain("Node Overview");
+  });
+
+  it("shows local LLM benchmark comparisons on the benchmarks section", () => {
+    const markup = renderToStaticMarkup(
+      <OperationalDashboard {...buildOperationalProps({ currentSection: "benchmarks" })} />
+    );
+
+    expect(markup).toContain("Local LLM Benchmarks");
+    expect(markup).toContain("prompt.email.classifier");
+    expect(markup).toContain("gpt-5.4-nano");
+    expect(markup).toContain("qwen3-8b-q4_k_m");
+    expect(markup).toContain("5,456 MiB");
   });
 
   it("shows friendly task kind and schedule names and sorts the legend by duration", () => {
